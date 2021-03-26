@@ -53,11 +53,17 @@ jobs:
                   
                   conda run -n test-env pytest -s --cov=ssqueezepy --cov-report=xml
                   
-            - name: codecov upload coverage
-              uses: codecov/codecov-action@v1
+            - name: Upload coverage to Codecov (demo)
+              uses: ./
               with:
-                token: ${{ secrets.CODECOV_TOKEN }}
-                directory: ./coverage/reports/
-                flags: unittests
-                env_vars: OS,PYTHON
-                path_to_write_report: ./coverage/codecov_report.txt
+                files: ./coverage/calculator/coverage-final.json,./coverage/coverage-test/coverage-final.json
+                file: ./coverage/coverage-final.json
+                flags: demo
+                name: codecov-demo
+                
+            - name: Upload coverage to Codecov (script)
+              uses: ./
+              with:
+                files: ./coverage/script/coverage-final.json
+                flags: script
+                name: codecov-script
