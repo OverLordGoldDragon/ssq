@@ -34,6 +34,9 @@ __license__ = __doc__
 __project_url__ = 'https://github.com/OverLordGoldDragon/ssqueezepy'
 
 
+def fn():
+    print("Executed")
+
 # from . import utils
 # from . import ssqueezing
 # from . import _cwt
