@@ -19,7 +19,7 @@ jobs:
                 python-version: [3.7]
 
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v1
             - name: Add Conda to path
               run: echo $CONDA >> $GITHUB_PATH
               
@@ -37,7 +37,7 @@ jobs:
                   # conda install numpy scipy pytest pytest-cov matplotlib -c conda-forge
                   # conda install -c numba numba
                   
-                  conda install -c conda-forge coverage
+                  conda install -c conda-forge coverage 
                   conda run -n test-env python3 -m pip install --upgrade pip
                   # conda run -n test-env python3 -m pip install -r requirements.txt
                   conda run -n test-env python3 -m pip install -r requirements-dev.txt
@@ -53,17 +53,11 @@ jobs:
                   
                   conda run -n test-env pytest -s --cov=ssqueezepy --cov-report=xml
                   
-            - name: Upload coverage to Codecov (demo)
-              uses: ./
+            - name: codecov upload coverage
+              uses: codecov/codecov-action@v1
               with:
-                files: ./coverage/calculator/coverage-final.json,./coverage/coverage-test/coverage-final.json
-                file: ./coverage/coverage-final.json
-                flags: demo
-                name: codecov-demo
-                
-            - name: Upload coverage to Codecov (script)
-              uses: ./
-              with:
-                files: ./coverage/script/coverage-final.json
-                flags: script
-                name: codecov-script
+                token: ${{ secrets.CODECOV_TOKEN }}
+                directory: ./coverage/reports/
+                flags: unittests
+                env_vars: OS,PYTHON
+                path_to_write_report: ./coverage/codecov_report.txt
