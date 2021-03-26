@@ -36,6 +36,7 @@ jobs:
               run: |
                   # conda install numpy scipy pytest pytest-cov matplotlib -c conda-forge
                   conda install pytest pytest-cov -c conda-forge
+                  conda install librosa -c conda-forge
                   # conda install -c numba numba
                   
                   conda run -n test-env python3 -m pip install --upgrade pip
