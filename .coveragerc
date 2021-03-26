@@ -6,6 +6,7 @@ omit =
 	ssqueezepy/algos.py
 	ssqueezepy/utils/gpu_utils.py
 	ssqueezepy/utils/stft_utils.py
+	ssqueezepy/utils/backend.py
 
 [report]
 show_missing = True
@@ -14,4 +15,5 @@ omit =
 	ssqueezepy/algos.py
 	ssqueezepy/utils/gpu_utils.py
 	ssqueezepy/utils/stft_utils.py
+	ssqueezepy/utils/backend.py
 precision = 3
