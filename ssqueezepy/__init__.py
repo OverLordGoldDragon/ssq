@@ -37,6 +37,8 @@ __project_url__ = 'https://github.com/OverLordGoldDragon/ssqueezepy'
 def fn():
     print("Executed")
 
+# import librosa
+# print("flower loaded")
 # from . import utils
 # from . import ssqueezing
 # from . import _cwt
