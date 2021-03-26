@@ -12,14 +12,14 @@ on:
 
 jobs:
     build-conda:
-        runs-on: ubuntu-20.04
+        runs-on: ubuntu-latest
 
         strategy:
             matrix:
                 python-version: [3.7]
 
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v1
             - name: Add Conda to path
               run: echo $CONDA >> $GITHUB_PATH
               
@@ -60,4 +60,4 @@ jobs:
                 directory: ./
                 flags: unittests
                 env_vars: OS,PYTHON
-                path_to_write_report: ./coverage/codecov_report.txt
+                path_to_write_report: ./codecov_report.txt
