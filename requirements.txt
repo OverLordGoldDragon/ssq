@@ -1,4 +1,1 @@
-numpy
-numba
-scipy
-matplotlib
+ftz
