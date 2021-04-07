@@ -1,14 +1,16 @@
 name: ssqueezepy CI
 
 on:
+    push:
+    
     pull_request:
-      paths:
-        - "ssqueezepy/*"
-        - "tests/*"
-        - ".github/workflows/*"
-        - ".coveragerc"
-        - "requirements.txt"
-        - "requirements-dev.txt"
+        paths:
+          - "ssqueezepy/*"
+          - "tests/*"
+          - ".github/workflows/*"
+          - ".coveragerc"
+          - "requirements.txt"
+          - "requirements-dev.txt"
 
 jobs:
     build-conda:
