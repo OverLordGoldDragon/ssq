@@ -2,7 +2,14 @@ name: ssqueezepy CI
 
 on:
     push:
-    
+        paths:
+          - "ssqueezepy/*"
+          - "tests/*"
+          - ".github/workflows/*"
+          - ".coveragerc"
+          - "requirements.txt"
+          - "requirements-dev.txt"
+          
     pull_request:
         paths:
           - "ssqueezepy/*"
