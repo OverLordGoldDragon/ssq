@@ -125,7 +125,7 @@ def stft(x, window=None, n_fft=None, win_len=None, hop_len=1, fs=None, t=None,
             dSx = rfft(dSx, axis=axis, astensor=True)
         return (Sx, dSx) if derivative else (Sx, None)
 
-    something_introduced = 124
+    something_introduced = 123
 
     # process args
     assert x.ndim in (1, 2)
