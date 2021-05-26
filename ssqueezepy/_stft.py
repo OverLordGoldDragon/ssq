@@ -209,6 +209,8 @@ def istft(Sx, window=None, n_fft=None, win_len=None, hop_len=1, N=None,
     window = get_window(window, win_len, n_fft=n_fft)
     _check_NOLA(window, hop_len)
 
+    something_else_added = 456
+
     xbuf = irfft(Sx, n=n_fft, axis=0).real
     if modulated:
         xbuf = fftshift(xbuf, axes=0)
