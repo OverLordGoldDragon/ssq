@@ -1,158 +1,215 @@
-<p align="center"><img src="https://user-images.githubusercontent.com/16495490/99882586-faa86f80-2c3a-11eb-899c-b3984e98b1c7.png" width="300"></p>
+Kymatio: Wavelet scattering in Python
+======================================
+
+Kymatio is an implementation of the wavelet scattering transform in the Python programming language, suitable for large-scale numerical experiments in signal processing and machine learning.
+Scattering transforms are translation-invariant signal representations implemented as convolutional networks whose filters are not learned, but fixed (as wavelet filters).
+
+[![PyPI](https://img.shields.io/badge/python-3.5%2C%203.6%2C%203.7-blue.svg)](https://pypi.org/project/kymatio/)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![Build Status](https://travis-ci.org/kymatio/kymatio.svg?branch=master)](https://travis-ci.org/kymatio/kymatio)
+[![Downloads](https://pepy.tech/badge/kymatio)](https://pepy.tech/project/kymatio)
+[![codecov](https://codecov.io/gh/kymatio/kymatio/branch/master/graph/badge.svg)](https://codecov.io/gh/kymatio/kymatio)
 
 
-# Synchrosqueezing in Python
+Use Kymatio if you need a library that:
+* supports 1-D, 2-D, and 3-D wavelets,
+* integrates wavelet scattering in a deep learning architecture, and
+* runs seamlessly on CPU and GPU hardware, with major deep learning APIs, such
+  as PyTorch and TensorFlow.
 
-![Action Status](https://github.com/OverLordGoldDragon/ssqueezepy/actions/workflows/conda.yml/badge.svg)
-[![Build Status](https://travis-ci.com/OverLordGoldDragon/ssqueezepy.svg?branch=master)](https://travis-ci.com/OverLordGoldDragon/ssqueezepy)
-[![Coverage Status](https://coveralls.io/repos/github/OverLordGoldDragon/ssqueezepy/badge.svg?branch=master&service=github)](https://coveralls.io/github/OverLordGoldDragon/ssqueezepy)
-[![PyPI version](https://badge.fury.io/py/ssqueezepy.svg)](https://badge.fury.io/py/ssqueezepy)
-[![Codacy Badge](https://app.codacy.com/project/badge/Grade/7cee422639034bcebe0f10ca4b95a506)](https://www.codacy.com/gh/OverLordGoldDragon/ssqueezepy/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=OverLordGoldDragon/ssqueezepy&amp;utm_campaign=Badge_Grade)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+# The Kymatio environment
 
-Synchrosqueezing is a powerful _reassignment method_ that focuses time-frequency representations, and allows extraction of instantaneous amplitudes and frequencies. [Friendly overview.](https://dsp.stackexchange.com/a/71399/50076)
+## Flexibility
 
+The Kymatio organization associates the developers of several pre-existing packages for wavelet scattering, including `ScatNet`, `scattering.m`, `PyScatWave`, `WaveletScattering.jl`, and `PyScatHarm`.
 
-## Features
-  - Continuous Wavelet Transform (CWT), forward & inverse, and its Synchrosqueezing
-  - Short-Time Fourier Transform (STFT), forward & inverse, and its Synchrosqueezing
-  - Wavelet visualizations and testing suite
-  - Generalized Morse Wavelets
-  - Ridge extraction
-  - Speed: fastest wavelet transforms in Python<sup>1</sup>, beating MATLAB
+The resort to PyTorch tensors as inputs to Kymatio allows the programmer to backpropagate the gradient of wavelet scattering coefficients, thus integrating them within an end-to-end trainable pipeline, such as a deep neural network.
 
-<sub>1: feel free to open Issue showing otherwise</sub>
+## Portability
 
+Each of these algorithms is written in a high-level imperative paradigm, making it portable to any Python library for array operations as long as it enables complex-valued linear algebra and a fast Fourier transform (FFT).
 
-## Installation
-`pip install ssqueezepy`. Or, for latest version (most likely stable): 
+Each algorithm comes packaged with a frontend and backend. The frontend takes care of
+interfacing with the user. The backend defines functions necessary for
+computation of the scattering transform.
 
-`pip install git+https://github.com/OverLordGoldDragon/ssqueezepy`
+Currently, there are eight available frontend–backend pairs, NumPy (CPU), scikit-learn (CPU), pure PyTorch (CPU and GPU), PyTorch<=1.7 (CPU and GPU), PyTorch+scikit-cuda (GPU), PyTorch<=1.7+scikit-cuda (GPU), TensorFlow (CPU and GPU), and Keras (CPU and GPU).
 
-## GPU & CPU acceleration
+## Scalability
 
-Multi-threaded execution is enabled by default (disable via `os.environ['SSQ_PARALLEL'] = '0'`). GPU requires [CuPy >= 8.0.0](https://docs.cupy.dev/en/stable/install.html) 
-and [PyTorch >= 1.8.0](https://pytorch.org/get-started/locally/) installed (enable via `os.environ['SSQ_GPU'] = '1'`). `pyfftw` optionally supported for maximum CPU FFT speed. 
-See [Performance guide](https://github.com/OverLordGoldDragon/ssqueezepy/blob/master/ssqueezepy/README.md#performance-guide).
+Kymatio integrates the construction of wavelet filter banks in 1D, 2D, and 3D, as well as memory-efficient algorithms for extracting wavelet scattering coefficients, under a common application programming interface.
 
+Running Kymatio on a graphics processing unit (GPU) rather than a multi-core conventional central processing unit (CPU) allows for significant speedups in computing the scattering transform.
+The current speedup with respect to CPU-based MATLAB code is of the order of 10 in 1D and 3D and of the order of 100 in 2D.
 
-## Examples
+We refer to our [official benchmarks](https://www.kymat.io/userguide.html#benchmarks) for further details.
 
-### 1. Signal recovery under severe noise
+## How to cite
 
-![image](https://user-images.githubusercontent.com/16495490/99879090-b9f12c00-2c23-11eb-8a40-2011ce84df61.png)
+If you use this package, please cite our paper <a href="">Kymatio: Scattering Transforms in Python</a>:
 
-### 2. Medical: EEG
-
-<img src="https://user-images.githubusercontent.com/16495490/99880110-c88f1180-2c2a-11eb-8932-90bf3406a20d.png">
-
-<img src="https://user-images.githubusercontent.com/16495490/104537035-9f8b6b80-5632-11eb-9fa4-444efec6c9be.png">
-
-### 3. Testing suite: CWT vs STFT, reflect-added parallel linear chirp
-
-<img src="https://user-images.githubusercontent.com/16495490/107452011-e7ce7880-6b61-11eb-972f-8aa5ea093dc8.png">
-
-### 4. Ridge extraction: cubic polynom. F.M. + pure tone; noiseless & 1.69dB SNR
-
-<img src="https://user-images.githubusercontent.com/16495490/107919540-f4e5d000-6f84-11eb-9f86-dbfd34733084.png">
-
-[More](https://github.com/OverLordGoldDragon/ssqueezepy/tree/master/examples/ridge_extraction)
-
-### 5. Testing suite: GMW vs Morlet, reflect-added hyperbolic chirp (extreme time-loc.)
-
-<img src="https://user-images.githubusercontent.com/16495490/107903903-d9b69880-6f63-11eb-9478-8ead016cf6f8.png">
-
-### 6. Higher-order GMW CWT, reflect-added parallel linear chirp, 3.06dB SNR
-
-<img src="https://user-images.githubusercontent.com/16495490/107921072-66bf1900-6f87-11eb-9bf5-afd0a6bbbc4d.png">
-
-[More examples](https://overlordgolddragon.github.io/test-signals/)
+Andreux M., Angles T., Exarchakis G., Leonarduzzi R., Rochette G., Thiry L., Zarka J., Mallat S., Andén J., Belilovsky E., Bruna J., Lostanlen V., Chaudhary M., Hirn M. J., Oyallon E., Zhang S., Cella C., Eickenberg M. (2020). Kymatio: Scattering Transforms in Python. Journal of Machine Learning Research 21(60):1−6, 2020. [(paper)](http://jmlr.org/papers/v21/19-047.html) [(bibtex)](http://jmlr.org/papers/v21/19-047.bib)
 
 
-## Introspection
-
-`ssqueezepy` is equipped with a visualization toolkit, useful for exploring wavelet behavior across scales and configurations. (Also see [explanations and code](https://dsp.stackexchange.com/a/72044/50076))
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/OverLordGoldDragon/ssqueezepy/master/examples/imgs/anim_tf_morlet20.gif" width="500">
-</p>
-
-<img src="https://raw.githubusercontent.com/OverLordGoldDragon/ssqueezepy/master/examples/imgs/morlet_5vs20_tf.png">
-<img src="https://user-images.githubusercontent.com/16495490/107297978-e6338080-6a8d-11eb-8a11-60bfd6e4137d.png">
-
-<hr>
+# Installation
 
 
-## Minimal example
+## Dependencies
 
-```python
-import numpy as np
-import matplotlib.pyplot as plt
-from ssqueezepy import ssq_cwt, ssq_stft
+Kymatio requires:
 
-def viz(x, Tx, Wx):
-    plt.imshow(np.abs(Wx), aspect='auto', cmap='jet')
-    plt.show()
-    plt.imshow(np.flipud(np.abs(Tx)), aspect='auto', vmin=0, vmax=.2, cmap='jet')
-    plt.show()   
+* Python (>= 3.5)
+* SciPy (>= 0.13)
 
-#%%# Define signal ####################################    
-N = 2048
-t = np.linspace(0, 10, N, endpoint=False)
-xo = np.cos(2 * np.pi * 2 * (np.exp(t / 2.2) - 1))
-xo += xo[::-1]  # add self reflected
-x = xo + np.sqrt(2) * np.random.randn(N)  # add noise
 
-plt.plot(xo); plt.show()
-plt.plot(x);  plt.show()
+### Standard installation (on CPU hardware)
+We strongly recommend running Kymatio in an Anaconda environment, because this simplifies the installation of other
+dependencies. You may install the latest version of Kymatio using the package manager `pip`, which will automatically download
+Kymatio from the Python Package Index (PyPI):
 
-#%%# CWT + SSQ CWT ####################################
-Twxo, Wxo, *_ = ssq_cwt(xo)
-viz(xo, Twxo, Wxo)
-
-Twx, Wx, *_ = ssq_cwt(x)
-viz(x, Twx, Wx)
-
-#%%# STFT + SSQ STFT ##################################
-Tsxo, Sxo, *_ = ssq_stft(xo)
-viz(xo, Tsxo, np.flipud(Sxo))
-
-Tsx, Sx, *_ = ssq_stft(x)
-viz(x, Tsx, np.flipud(Sx))
+```
+pip install kymatio
 ```
 
-Also see ridge extraction [README](https://github.com/OverLordGoldDragon/ssqueezepy/tree/master/examples/ridge_extraction).
+Linux and macOS are the two officially supported operating systems.
 
 
-## Learning resources
+# Frontend
 
- 1. [Continuous Wavelet Transform, & vs STFT](https://ccrma.stanford.edu/~unjung/mylec/WTpart1.html)
- 2. [Synchrosqueezing's phase transform, intuitively](https://dsp.stackexchange.com/a/72238/50076)
- 3. [Wavelet time & frequency resolution visuals](https://dsp.stackexchange.com/a/72044/50076)
- 4. [Why oscillations in SSQ of mixed sines? Separability visuals](https://dsp.stackexchange.com/a/72239/50076)
- 5. [Zero-padding's effect on spectrum](https://dsp.stackexchange.com/a/70498/50076)
+## NumPy
 
-**DSP fundamentals**: I recommend starting with 3b1b's [Fourier Transform](https://youtu.be/spUNpyF58BY), then proceeding with [DSP Guide](https://www.dspguide.com/CH7.PDF) chapters 7-11.
-The Discrete Fourier Transform lays the foundation of signal processing with real data. Deeper on DFT coefficients [here](https://dsp.stackexchange.com/a/70395/50076), also [3b1b](https://youtu.be/g8RkArhtCc4).
+To explicitly call the `numpy` frontend, run:
+
+```
+from kymatio.numpy import Scattering2D
+scattering = Scattering2D(J=2, shape=(32, 32))
+```
+
+## Scikit-learn
+
+After installing the latest version of scikit-learn, you can call `Scattering2D` as a `Transformer` using:
+
+```
+from kymatio.sklearn import Scattering2D
+
+scattering_transformer = Scattering2D(2, (32, 32))
+```
+
+## PyTorch
+
+After installing the latest version of PyTorch, you can call `Scattering2D` as a `torch.nn.Module` using:
+
+```
+from kymatio.torch import Scattering2D
+
+scattering = Scattering2D(J=2, shape=(32, 32))
+```
+
+## TensorFlow
+
+After installing the latest version of TensorFlow, you can call `Scattering2D` as a `tf.Module` using:
+
+```
+from kymatio.tensorflow import Scattering2D
+
+scattering = Scattering2D(J=2, shape=(32, 32))
+```
+
+## Keras
+
+Alternatively, with TensorFlow installed, you can call `Scattering2D` as a Keras `Layer` using:
+
+```
+from tensorflow.keras.layers import Input
+from kymatio.keras import Scattering2D
+
+inputs = Input(shape=(32, 32))
+scattering = Scattering2D(J=2)(inputs)
+```
+
+# Installation from source
+
+Assuming the Kymatio source has been downloaded, you may install it by running
+
+```
+pip install -r requirements.txt
+python setup.py install
+```
+
+Developers can also install Kymatio via:
+
+```
+pip install -r requirements.txt
+python setup.py develop
+```
 
 
-## Contributors (noteworthy)
+## GPU acceleration
 
- - [David Bondesson](https://github.com/DavidBondesson): ridge extraction (`ridge_extraction.py`; `examples/`: `extracting_ridges.py`, `ridge_extraction/README.md`)
- 
+Certain frontends, `numpy` and `sklearn`, only allow processing on the CPU and are therefore slower. The `torch`, `tensorflow`, and `keras` frontends, however, also support GPU processing, which can significantly accelerate computations. Additionally, the `torch` backend supports an optimized `skcuda` backend which currently provides the fastest performance in computing scattering transforms. In 2D, it may be instantiated using:
 
-## References
+```
+from kymatio.torch import Scattering2D
 
-`ssqueezepy` was originally ported from MATLAB's [Synchrosqueezing Toolbox](https://github.com/ebrevdo/synchrosqueezing), authored by E. Brevdo and G. Thakur [1]. Synchrosqueezed Wavelet Transform was introduced by I. Daubechies and S. Maes [2], which was followed-up in [3], and adapted to STFT in [4]. Many implementation details draw from [5]. Ridge extraction based on [6].
+scattering = Scattering2D(J=2, shape=(32, 32), backend='torch_skcuda')
+```
 
-  1. G. Thakur, E. Brevdo, N.-S. Fučkar, and H.-T. Wu. ["The Synchrosqueezing algorithm for time-varying spectral analysis: robustness properties and new paleoclimate applications"](https://arxiv.org/abs/1105.0010), Signal Processing 93:1079-1094, 2013. 
-  2. I. Daubechies, S. Maes. ["A Nonlinear squeezing of the Continuous Wavelet Transform Based on Auditory Nerve Models"](https://services.math.duke.edu/%7Eingrid/publications/DM96.pdf). 
-  3. I. Daubechies, J. Lu, H.T. Wu. ["Synchrosqueezed Wavelet Transforms: a Tool for Empirical Mode Decomposition"](https://arxiv.org/pdf/0912.2437.pdf), Applied and Computational Harmonic Analysis 30(2):243-261, 2011.
-  4. G. Thakur, H.T. Wu. ["Synchrosqueezing-based Recovery of Instantaneous Frequency from Nonuniform Samples"](https://arxiv.org/abs/1006.2533), SIAM Journal on Mathematical Analysis, 43(5):2078-2095, 2011.
-  5. Mallat, S. ["Wavelet Tour of Signal Processing 3rd ed"](https://www.di.ens.fr/~mallat/papiers/WaveletTourChap1-2-3.pdf).
-  6. D. Iatsenko, P. V. E. McClintock, A. Stefanovska. ["On the extraction of instantaneous frequencies from ridges in time-frequency representations of signals"](https://arxiv.org/pdf/1310.7276.pdf).
+This is particularly useful when working with large images, such as those in ImageNet, which are of size 224×224.
+
+## PyTorch and scikit-cuda
+
+To run Kymatio on a graphics processing unit (GPU), you can either use the PyTorch-style `cuda()` method to move your
+object to GPU. Kymatio is designed to operate on a variety of backends for tensor operations. For extra speed, install
+the CUDA library and the `skcuda` dependency by running the following pip command:
+
+```
+pip install scikit-cuda cupy
+```
+
+The user may control the choice of backend at runtime via for instance:
+
+```
+from kymatio.torch import Scattering2D
+scattering = Scattering2D(J=2, shape=(32, 32)), backend='torch_skcuda')
+```
+
+# Documentation
+
+The documentation of Kymatio is officially hosted on the [kymat.io](https://www.kymat.io/) website.
 
 
-## License
+## Online resources
 
-ssqueezepy is MIT licensed, as found in the [LICENSE](https://github.com/OverLordGoldDragon/ssqueezepy/blob/master/LICENSE) file. Some source functions may be under other authorship/licenses; see [NOTICE.txt](https://github.com/OverLordGoldDragon/ssqueezepy/blob/master/NOTICE.txt).
+* [GitHub repository](https://github.com/kymatio/kymatio)
+* [GitHub issue tracker](https://github.com/kymatio/kymatio/issues)
+* [BSD-3-Clause license](https://github.com/kymatio/kymatio/blob/master/LICENSE.md)
+* [List of authors](https://github.com/kymatio/kymatio/blob/master/AUTHORS.md)
+* [Code of conduct](https://github.com/kymatio/kymatio/blob/master/CODE_OF_CONDUCT.md)
+
+
+## Building the documentation from source
+The documentation can also be found in the `doc/` subfolder of the GitHub repository.
+To build the documentation locally, please clone this repository and run
+
+```
+pip install -r requirements_optional.txt
+cd doc; make clean; make html
+```
+
+## Support
+
+We wish to thank the Scientific Computing Core at the Flatiron Institute for the use of their computing resources for testing.
+
+<a href="https://www.flatironinstitute.org/"><img src="https://itensor.org/flatiron_logo.png" height="100"></a>
+
+We would also like to thank École Normale Supérieure for their support.
+
+[![ENS](https://www.ens.fr/sites/default/files/inline-images/logo.jpg)](https://www.ens.fr/)
+
+## Kymatio
+
+Kyma (*κύμα*) means *wave* in Greek. By the same token, Kymatio (*κυμάτιο*) means *wavelet*.
+
+Note that the organization and the library are capitalized (*Kymatio*) whereas the corresponding Python module is written in lowercase (`import kymatio`).
+
+The recommended pronunciation for Kymatio is *kim-ah-tio*. In other words, it rhymes with patio, not with ratio.

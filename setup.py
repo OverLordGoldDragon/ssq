@@ -1,80 +1,83 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-# Copyright © OverLordGoldDragon
-# Licensed under the terms of the MIT License
-# (see ssqueezepy/__init__.py for details)
 
-"""
-ssqueezepy
-==========
-
-Synchrosqueezing, wavelet transforms, and time-frequency analysis in Python
-
-ssqueezepy features time-frequency analysis written for performance, flexibility,
-and clarity. Included are Continuous Wavelet Transform (CWT), Short-Time Fourier
-Transform (STFT), CWT & STFT synchrosqueezing, Generalized Morse Wavelets,
-visualizations, a signal testing suite, and automatic ridge extraction.
-"""
-
-import os
-import re
+import importlib
 from setuptools import setup, find_packages
 
-current_path = os.path.abspath(os.path.dirname(__file__))
+# Constants
+DISTNAME = 'kymatio'
+DESCRIPTION = 'Wavelet scattering transforms in Python with GPU acceleration'
+URL = 'https://www.kymat.io'
+LICENSE = 'BSD-3-Clause'
 
 
-def read_file(*parts):
-    with open(os.path.join(current_path, *parts), encoding='utf-8') as reader:
-        return reader.read()
+# Parse description
+with open('README.md', encoding='utf8') as f:
+    README = f.read().split('\n')
+    LONG_DESCRIPTION = '\n'.join([x for x in README if not x[:3] == '[!['])
 
 
-def get_requirements(*parts):
-    with open(os.path.join(current_path, *parts), encoding='utf-8') as reader:
-        return list(map(lambda x: x.strip(), reader.readlines()))
+# Parse version.py
+kymatio_version_spec = importlib.util.spec_from_file_location(
+    'kymatio_version', 'kymatio/version.py')
+kymatio_version_module = importlib.util.module_from_spec(kymatio_version_spec)
+kymatio_version_spec.loader.exec_module(kymatio_version_module)
+VERSION = kymatio_version_module.version
 
 
-def find_version(*file_paths):
-    version_file = read_file(*file_paths)
-    version_matched = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                                version_file, re.M)
-    if version_matched:
-        return version_matched.group(1)
-    raise RuntimeError('Unable to find version')
+# Parse requirements.txt
+with open('requirements.txt', 'r') as f:
+    REQUIREMENTS = f.read().split('\n')
 
 
-setup(
-    name="ssqueezepy",
-    version=find_version('ssqueezepy', '__init__.py'),
-    packages=find_packages(exclude=['tests', 'examples']),
-    url="https://github.com/OverLordGoldDragon/ssqueezepy",
-    license="MIT",
-    author="OverLordGoldDragon",
-    author_email="16495490+OverLordGoldDragon@users.noreply.github.com",
-    description=("Synchrosqueezing, wavelet transforms, and "
-                 "time-frequency analysis in Python"),
-    long_description=read_file('README.md'),
-    long_description_content_type="text/markdown",
-    keywords=(
-        "signal-processing python synchrosqueezing wavelet-transform cwt stft "
-        "morse-wavelet ridge-extraction time-frequency time-frequency-analysis"
-    ),
-    install_requires=get_requirements('requirements.txt'),
-    tests_require=["pytest>=4.0", "pytest-cov"],
-    include_package_data=True,
+setup_info = dict(
+    # Metadata
+    name=DISTNAME,
+    version=VERSION,
+    author=('Edouard Oyallon, Eugene Belilovsky, Sergey Zagoruyko, '
+            'Michael Eickenberg, Mathieu Andreux, Georgios Exarchakis, '
+            'Louis Thiry, Vincent Lostanlen, Joakim Andén, '
+            'Tomás Angles, Gabriel Huang, Roberto Leonarduzzi'),
+    author_email=('edouard.oyallon@lip6.fr, belilove@iro.umontreal.ca, '
+                  'sergey.zagoruyko@inria.fr, michael.eickenberg@flatironinstitute.org, '
+                  'mathieu.andreux@ens.fr, georgios.exarchakis@ens.fr, '
+                  'louis.thiry@ens.fr, vincent.lostanlen@nyu.edu, janden@kth.se, '
+                  'tomas.angles@ens.fr, gabriel.huang@umontreal.ca, roberto.leonarduzzi@ens.fr'),
+    url=URL,
+    download_url='https://github.com/kymatio/kymatio/releases',
+    project_urls={
+        'Documentation': 'https://www.kymat.io/codereference.html',
+        'Source': 'https://github.com/kymatio/kymatio/',
+        'Tracker': 'https://github.com/kymatio/kymatio/issues',
+        'Authors': 'https://github.com/kymatio/kymatio/blob/master/AUTHORS.md'
+    },
+    classifiers=['Intended Audience :: Education',
+                 'Intended Audience :: Science/Research',
+                 'License :: OSI Approved :: BSD License',
+                 'Natural Language :: English',
+                 'Operating System :: MacOS',
+                 'Operating System :: POSIX :: Linux',
+                 'Programming Language :: Python :: 3.6',
+                 'Programming Language :: Python :: 3.7',
+                 'Programming Language :: Python :: 3.8',
+                 'Topic :: Multimedia :: Graphics :: 3D Modeling',
+                 'Topic :: Multimedia :: Sound/Audio :: Analysis',
+                 'Topic :: Scientific/Engineering :: Artificial Intelligence',
+                 'Topic :: Scientific/Engineering :: Chemistry',
+                 'Topic :: Scientific/Engineering :: Image Recognition',
+                 'Topic :: Scientific/Engineering :: Information Analysis',
+                 'Topic :: Scientific/Engineering :: Mathematics',
+                 'Topic :: Scientific/Engineering :: Physics',
+                 'Topic :: Software Development :: Libraries :: Python Modules',
+                 ],
+    description=DESCRIPTION,
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type='text/markdown',
+    python_requires='>=3.6',
+    license=LICENSE,
+    packages=find_packages(exclude=('test',)),
+    install_requires=REQUIREMENTS,
     zip_safe=True,
-    classifiers=[
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Operating System :: OS Independent",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Information Technology",
-        "Intended Audience :: Science/Research",
-        "Topic :: Utilities",
-        "Topic :: Scientific/Engineering",
-        "Topic :: Scientific/Engineering :: Information Analysis",
-        "Topic :: Software Development",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-    ],
 )
+
+setup(**setup_info)
