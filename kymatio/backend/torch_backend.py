@@ -1,99 +1,4 @@
 import torch
-from torch.autograd import Function
-
-
-class ModulusStable(Function):
-    """Stable complex modulus
-
-    This class implements a modulus transform for complex numbers which is
-    stable with respect to very small inputs (z close to 0), avoiding
-    returning nans in all cases.
-
-    Usage
-    -----
-    modulus = ModulusStable.apply  # apply inherited from Function
-    x_mod = modulus(x)
-
-    Parameters
-    ---------
-    x : tensor
-        The complex tensor (i.e., whose last dimension is two) whose modulus
-        we want to compute.
-
-    Returns
-    -------
-    output : tensor
-        A tensor of same size as the input tensor, except for the last
-        dimension, which is removed. This tensor is differentiable with respect
-        to the input in a stable fashion (so gradent of the modulus at zero is
-        zero).
-    """
-    @staticmethod
-    def forward(ctx, x):
-        """Forward pass of the modulus.
-
-        This is a static method which does not require an instantiation of the
-        class.
-
-        Arguments
-        ---------
-        ctx : context object
-            Collected during the forward pass. These are automatically added
-            by PyTorch and should not be touched. They are then used for the
-            backward pass.
-        x : tensor
-            The complex tensor whose modulus is to be computed.
-
-        Returns
-        -------
-        output : tensor
-            This contains the modulus computed along the last axis, with that
-            axis removed.
-        """
-        ctx.p = 2
-        ctx.dim = -1
-        ctx.keepdim = False
-
-        output = (x[...,0] * x[...,0] + x[...,1] * x[...,1]).sqrt()
-
-        ctx.save_for_backward(x, output)
-
-        return output
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """Backward pass of the modulus
-
-        This is a static method which does not require an instantiation of the
-        class.
-
-        Arguments
-        ---------
-        ctx : context object
-            Collected during the forward pass. These are automatically added
-            by PyTorch and should not be touched. They are then used for the
-            backward pass.
-        grad_output : tensor
-            The gradient with respect to the output tensor computed at the
-            forward pass.
-
-        Returns
-        -------
-        grad_input : tensor
-            The gradient with respect to the input.
-        """
-        x, output = ctx.saved_tensors
-
-        if ctx.dim is not None and ctx.keepdim is False and x.dim() != 1:
-            grad_output = grad_output.unsqueeze(ctx.dim)
-            output = output.unsqueeze(ctx.dim)
-
-        grad_input = x.mul(grad_output).div(output)
-
-        # Special case at 0 where we return a subgradient containing 0
-        grad_input.masked_fill_(output == 0, 0)
-
-        return grad_input
 
 
 class TorchBackend:
@@ -104,22 +9,15 @@ class TorchBackend:
         if x is None:
             raise TypeError('The input should be not empty.')
 
-        cls.contiguous_check(x)
-
     @classmethod
     def complex_check(cls, x):
         if not cls._is_complex(x):
-            raise TypeError('The input should be complex (i.e. last dimension is 2).')
+            raise TypeError('The input should be complex (got %s).' % x.dtype)
 
     @classmethod
     def real_check(cls, x):
         if not cls._is_real(x):
-            raise TypeError('The input should be real.')
-
-    @classmethod
-    def complex_contiguous_check(cls, x):
-        cls.complex_check(x)
-        cls.contiguous_check(x)
+            raise TypeError('The input should be real (got %s).' % x.dtype)
 
     @staticmethod
     def contiguous_check(x):
@@ -128,21 +26,24 @@ class TorchBackend:
 
     @staticmethod
     def _is_complex(x):
-        return x.shape[-1] == 2
+        return torch.is_complex(x)
 
     @staticmethod
     def _is_real(x):
-        return x.shape[-1] == 1
+        return 'float' in str(x.dtype)
 
     @classmethod
     def modulus(cls, x):
-        cls.complex_contiguous_check(x)
-        norm = ModulusStable.apply(x)[..., None]
-        return norm
+        cls.complex_check(x)
+        return torch.abs(x)
 
     @staticmethod
-    def concatenate(arrays, dim=2):
-        return torch.stack(arrays, dim=dim)
+    def concatenate(arrays, axis=-2):
+        return torch.stack(arrays, dim=axis)
+
+    @staticmethod
+    def concatenate_v2(arrays, axis=2):
+        return torch.cat(arrays, dim=axis)
 
     @classmethod
     def cdgmm(cls, A, B):
@@ -179,17 +80,15 @@ class TorchBackend:
 
         """
         if not cls._is_real(B):
-            cls.complex_contiguous_check(B)
-        else:
-            cls.contiguous_check(B)
+            cls.complex_check(B)
+        cls.complex_check(A)
 
-        cls.complex_contiguous_check(A)
-
-        if A.shape[-len(B.shape):-1] != B.shape[:-1]:
-            raise RuntimeError('The filters are not compatible for multiplication.')
-
-        if A.dtype is not B.dtype:
-            raise TypeError('Input and filter must be of the same dtype.')
+        sa, sb = A.shape, B.shape
+        # last dims equal, or last except *the* last if the last is 1 in A or B
+        if not ((sa[-B.ndim:] == sb) or
+                ((sa[-1] == 1 or sb[-1] == 1) and (sa[-B.ndim:-1] == sb[:-1]))):
+            raise RuntimeError('The inputs are not compatible for '
+                               'multiplication (%s and %s).' % (sa, sb))
 
         if B.device.type == 'cuda':
             if A.device.type == 'cuda':
@@ -202,18 +101,52 @@ class TorchBackend:
             if A.device.type == 'cuda':
                 raise TypeError('Input must be on CPU.')
 
-        if cls._is_real(B):
-            return A * B
+        return A * B
+
+    @classmethod
+    def sqrt(cls, x, dtype=None):
+        if isinstance(x, (float, int)):
+            x = torch.tensor(x, dtype=dtype)
+        elif dtype is not None:
+            if isinstance(dtype, str):
+                dtype = getattr(torch, dtype)
+            x = x.type(dtype)
+        return torch.sqrt(x)
+
+    @classmethod
+    def mean(cls, x, axis=-1, keepdims=True):
+        return x.mean(axis, keepdim=keepdims)
+
+    @classmethod
+    def conj(cls, x, inplace=False):
+        torch110 = bool(int(torch.__version__.split('.')[1]) >= 10)
+        if inplace and (not torch110 and getattr(x, 'requires_grad', False)):
+            raise Exception("Torch autograd doesn't support `out=`")
+        if inplace:
+            out = (torch.conj(x) if torch110 else
+                   torch.conj(x, out=x))
         else:
-            C = A.new(A.shape)
+            if torch110:
+                x = x.detach().clone()
+            out = (torch.conj(x) if cls._is_complex(x) else
+                   x)
+        return out
 
-            A_r = A[..., 0].view(-1, B.nelement() // 2)
-            A_i = A[..., 1].view(-1, B.nelement() // 2)
+    @classmethod
+    def zeros_like(cls, ref, shape=None):
+        shape = shape if shape is not None else ref.shape
+        return torch.zeros(shape, dtype=ref.dtype, layout=ref.layout,
+                           device=ref.device)
 
-            B_r = B[..., 0].view(-1).unsqueeze(0).expand_as(A_r)
-            B_i = B[..., 1].view(-1).unsqueeze(0).expand_as(A_i)
+    @classmethod
+    def reshape(cls, x, shape):
+        return x.reshape(*shape)
 
-            C[..., 0].view(-1, B.nelement() // 2)[:] = A_r * B_r - A_i * B_i
-            C[..., 1].view(-1, B.nelement() // 2)[:] = A_r * B_i + A_i * B_r
+    @classmethod
+    def transpose(cls, x, axes):
+        return x.permute(*axes)
 
-            return C
+    @classmethod
+    def assign_slice(cls, x, x_slc, slc):
+        x[slc] = x_slc
+        return x

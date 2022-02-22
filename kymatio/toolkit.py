@@ -718,8 +718,8 @@ def pack_coeffs_jtfs(Scx, meta, structure=1, sample_idx=None,
         n2s = np.unique(n2s_all)
 
         for n2 in n2s:
-            n1_frs_all = nsp[n2s_all == n2, 1]
             packed[pair].append([])
+            n1_frs_all = nsp[n2s_all == n2, 1]
             n1_frs = np.unique(n1_frs_all)
             n_n1_frs_max = max(n_n1_frs_max, len(n1_frs))
 
@@ -848,7 +848,7 @@ def pack_coeffs_jtfs(Scx, meta, structure=1, sample_idx=None,
 
     # `3` won't pack `phi_f` with `psi_f` so can't pack `phi_t * phi_f` along
     # `phi_t * psi_f`, must pack with `psi_t * phi_f` instead
-    if structure == 3 and c_phi_t is not None:
+    if structure == 3:
         _len = len(c_phi_t[0])
         combined_phi_f.insert(0, c_phi_t[0][_len//2:_len//2 + 1])
 
@@ -2070,13 +2070,13 @@ def validate_filterbank(psi_fs, phi_f=None, criterion_amplitude=1e-3,
 
 
 #### energy & distance #######################################################
-def energy(x, axis=None, kind='l2'):
+def energy(x, kind='l2'):
     """Compute energy. L1==`sum(abs(x))`, L2==`sum(abs(x)**2)` (so actually L2^2).
     """
     x = x['coef'] if isinstance(x, dict) else x
     B = ExtendedUnifiedBackend(x)
-    out = (B.norm(x, ord=1, axis=axis) if kind == 'l1' else
-           B.norm(x, ord=2, axis=axis)**2)
+    out = (B.norm(x, ord=1) if kind == 'l1' else
+           B.norm(x, ord=2)**2)
     if np.prod(out.shape) == 1:
         out = float(out)
     return out
@@ -2465,10 +2465,7 @@ class ExtendedUnifiedBackend():
         if self.backend_name == 'numpy':
             out = np.min(x, axis=axis, keepdims=keepdims)
         elif self.backend_name == 'torch':
-            kw = {'dim': axis} if axis is not None else {}
-            if keepdims:
-                kw['keepdim'] = True
-            out = self.B.min(x, **kw)
+            out = self.B.min(x, dim=axis, keepdim=keepdims)
         else:
             out = self.B.math.reduce_min(x, axis=axis, keepdims=keepdims)
         return out

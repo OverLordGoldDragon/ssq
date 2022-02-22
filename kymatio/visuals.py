@@ -172,7 +172,7 @@ def filterbank_scattering(scattering, zoom=0, filterbank=True, lp_sum=False,
         scattering = Scattering1D(shape=2048, J=8, Q=8)
         filterbank_scattering(scattering)
     """
-    def _plot_filters(ps, p0, lp, J, title):
+    def _plot_filters(ps, p0, lp, title):
         # determine plot parameters ##########################################
         Nmax = len(ps[0][0])
         # x-axis zoom
@@ -193,9 +193,10 @@ def filterbank_scattering(scattering, zoom=0, filterbank=True, lp_sum=False,
             # Morlets
             for p in ps:
                 j = p['j']
-                plot(p[0], color=colors[j], linestyle=linestyles[j], w=.69, h=.85)
+                plot(p[0], color=colors[j], linestyle=linestyles[j], w=.69,
+                     h=.85)
             # vertical lines (octave bounds)
-            plot([], vlines=([Nmax//2**j for j in range(1, J + 2)],
+            plot([], vlines=([Nmax//2**j for j in range(1, scattering.J + 2)],
                               dict(color='k', linewidth=1)), ax=ax)
             # lowpass
             if isinstance(p0[0], list):
@@ -260,16 +261,15 @@ def filterbank_scattering(scattering, zoom=0, filterbank=True, lp_sum=False,
                 lp2 += np.abs(p0_longest)**2
 
     # title & plot
-    (Q0, Q1), (J0, J1) = scattering.Q, scattering.J
     if first_order:
         title = "First-order filterbank | J, Q1, T = {}, {}, {}".format(
-            J0, Q0, scattering.T)
-        _plot_filters(p1, p0, lp1, J0, title=title)
+            scattering.J, scattering.Q[0], scattering.T)
+        _plot_filters(p1, p0, lp1, title=title)
 
     if second_order:
         title = "Second-order filterbank | J, Q2, T = {}, {}, {}".format(
-            J1, Q1, scattering.T)
-        _plot_filters(p2, p0, lp2, J1, title=title)
+            scattering.J, scattering.Q[1], scattering.T)
+        _plot_filters(p2, p0, lp2, title=title)
 
 
 def filterbank_jtfs_1d(jtfs, zoom=0, j0=0, filterbank=True, lp_sum=False,
@@ -1609,12 +1609,12 @@ def hist(x, bins=500, title=None, show=0, stats=0, ax=None, fig=None,
         return [(("%.3e" % n) if (abs(n) > 1e3 or abs(n) < 1e-3) else
                  ("%.3f" % n)) for n in nums]
 
+    x = np.asarray(x)
+    _ = plt.hist(x.ravel(), bins=bins)
+    _title(title)
+
     ax  = ax  or plt.gca()
     fig = fig or plt.gcf()
-
-    x = np.asarray(x)
-    _ = ax.hist(x.ravel(), bins=bins)
-    _title(title, ax)
     _scale_plot(fig, ax, show=show, w=w, h=h, xlims=xlims, ylims=ylims,
                 xlabel=xlabel, ylabel=ylabel)
     if show:
