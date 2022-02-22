@@ -7,4 +7,3 @@ matplotlib
 scikit-learn
 texext
 m2r2
-pycodestyle

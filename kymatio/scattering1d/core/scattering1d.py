@@ -1,8 +1,8 @@
 
-def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
-        ind_start=None, ind_end=None, oversampling=0,
+def scattering1d(x, pad, unpad, backend, log2_T, psi1, psi2, phi, pad_left=0,
+        pad_right=0, ind_start=None, ind_end=None, oversampling=0,
         max_order=2, average=True, size_scattering=(0, 0, 0),
-        out_type='array'):
+        vectorize=False, out_type='array'):
     """
     Main function implementing the 1-D scattering transform.
 
@@ -68,12 +68,12 @@ def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
 
     # S is simply a dictionary if we do not perform the averaging...
     batch_size = x.shape[0]
-    kJ = max(log2_T - oversampling, 0)
-    temporal_size = ind_end[kJ] - ind_start[kJ]
+    klog2_T = max(log2_T - oversampling, 0)
+    temporal_size = ind_end[klog2_T] - ind_start[klog2_T]
     out_S_0, out_S_1, out_S_2 = [], [], []
 
     # pad to a dyadic size and make it complex
-    U_0 = pad_fn(x)
+    U_0 = pad(x, pad_left=pad_left, pad_right=pad_right)
     # compute the Fourier transform
     U_0_hat = rfft(U_0)
 
@@ -97,7 +97,8 @@ def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
         # Convolution + downsampling
         j1 = psi1[n1]['j']
 
-        k1 = max(min(j1, log2_T) - oversampling, 0)
+        sub1_adj = min(j1, log2_T) if average else j1
+        k1 = max(sub1_adj - oversampling, 0)
 
         assert psi1[n1]['xi'] < 0.5 / (2**k1)
         U_1_c = cdgmm(U_0_hat, psi1[n1][0])
@@ -134,7 +135,8 @@ def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
                     assert psi2[n2]['xi'] < psi1[n1]['xi']
 
                     # convolution + downsampling
-                    k2 = max(min(j2, log2_T) - k1 - oversampling, 0)
+                    sub2_adj = min(j2, log2_T) if average else j2
+                    k2 = max(sub2_adj - k1 - oversampling, 0)
 
                     U_2_c = cdgmm(U_1_hat, psi2[n2][k1])
                     U_2_hat = subsample_fourier(U_2_c, 2**k2)
@@ -147,13 +149,14 @@ def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
                         U_2_hat = rfft(U_2_m)
 
                         # Convolve with phi_J
-                        k2_J = max(log2_T - k2 - k1 - oversampling, 0)
+                        k2_log2_T = max(log2_T - k2 - k1 - oversampling, 0)
 
                         S_2_c = cdgmm(U_2_hat, phi[k1 + k2])
-                        S_2_hat = subsample_fourier(S_2_c, 2**k2_J)
+                        S_2_hat = subsample_fourier(S_2_c, 2**k2_log2_T)
                         S_2_r = irfft(S_2_hat)
 
-                        S_2 = unpad(S_2_r, ind_start[k1 + k2 + k2_J], ind_end[k1 + k2 + k2_J])
+                        S_2 = unpad(S_2_r, ind_start[k1 + k2 + k2_log2_T],
+                                    ind_end[k1 + k2 + k2_log2_T])
                     else:
                         S_2 = unpad(U_2_m, ind_start[k1 + k2], ind_end[k1 + k2])
 
@@ -166,8 +169,14 @@ def scattering1d(x, pad_fn, unpad, backend, J, log2_T, psi1, psi2, phi,
     out_S.extend(out_S_1)
     out_S.extend(out_S_2)
 
-    if out_type == 'array' and average:
+    if out_type == 'array' and vectorize:
         out_S = concatenate([x['coef'] for x in out_S])
+    elif out_type == 'array' and not vectorize:
+        out_S = {x['n']: x['coef'] for x in out_S}
+    elif out_type == 'list':
+        # NOTE: This overrides the vectorize flag.
+        for x in out_S:
+            x.pop('n')
 
     return out_S
 

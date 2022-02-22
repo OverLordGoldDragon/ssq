@@ -1,12 +1,22 @@
 import torch
-import torch.fft
+import torch.nn.functional as F
 from ...backend.torch_backend import TorchBackend
-from . import agnostic_backend as agnostic
+
+from packaging import version
+
+if version.parse(torch.__version__) >= version.parse('1.8'):
+    _fft = lambda x: torch.view_as_real(torch.fft.fft(torch.view_as_complex(x)))
+    _ifft = lambda x: torch.view_as_real(torch.fft.ifft(torch.view_as_complex(x)))
+    _irfft = lambda x: torch.fft.ifft(torch.view_as_complex(x)).real[..., None]
+else:
+    _fft = lambda x: torch.fft(x, 1, normalized=False)
+    _ifft = lambda x: torch.ifft(x, 1, normalized=False)
+    _irfft = lambda x: torch.irfft(x, 1, normalized=False, onesided=False)[..., None]
 
 
 class TorchBackend1D(TorchBackend):
     @classmethod
-    def subsample_fourier(cls, x, k, axis=-1):
+    def subsample_fourier(cls, x, k):
         """Subsampling in the Fourier domain
 
         Subsampling in the temporal domain amounts to periodization in the Fourier
@@ -22,8 +32,6 @@ class TorchBackend1D(TorchBackend):
             imaginary parts of the Fourier transform.
         k : int
             The subsampling factor.
-        axis : int
-            Axis along which to subsample.
 
         Returns
         -------
@@ -33,102 +41,91 @@ class TorchBackend1D(TorchBackend):
         """
         cls.complex_check(x)
 
-        axis = axis if axis >= 0 else x.ndim + axis  # ensure positive
-        s = list(x.shape)
-        N = s[axis]
-        re = (k, N // k)
-        s.pop(axis)
-        s.insert(axis, re[1])
-        s.insert(axis, re[0])
-        s.append(2)  # view_as_real
+        N = x.shape[-2]
 
-        x = torch.view_as_real(x)
-        res = x.view(s).mean(dim=axis)
-        res = torch.view_as_complex(res)
+        res = x.view(x.shape[:-2] + (k, N // k, 2)).mean(dim=-3)
 
         return res
 
     @staticmethod
-    def pad(x, pad_left, pad_right, pad_mode='reflect', axis=-1):
-        """Pad N-dim tensor along one dimension.
+    def pad(x, pad_left, pad_right):
+        """Pad real 1D tensors
 
-        Pads PyTorch tensor by `pad_left` and `pad_right` along one axis.
+        1D implementation of the padding function for real PyTorch tensors.
 
         Parameters
         ----------
         x : tensor
-            Input with at least one axis.
+            Three-dimensional input tensor with the third axis being the one to
+            be padded.
         pad_left : int
             Amount to add on the left of the tensor (at the beginning of the
             temporal axis).
         pad_right : int
             amount to add on the right of the tensor (at the end of the temporal
             axis).
-        axis : int
-            Axis to pad.
-        pad_mode : str
-            name of padding to use.
-
         Returns
         -------
         res : tensor
             The tensor passed along the third dimension.
         """
-        return agnostic.pad(x, pad_left, pad_right, pad_mode, axis=axis)
+        if (pad_left >= x.shape[-1]) or (pad_right >= x.shape[-1]):
+            raise ValueError('Indefinite padding size (larger than tensor).')
+
+        res = F.pad(x, (pad_left, pad_right), mode='reflect')
+        res = res[..., None]
+
+        return res
 
     @staticmethod
-    def unpad(x, i0, i1, axis=-1):
-        """Unpad N-dim tensor along one dimension.
+    def unpad(x, i0, i1):
+        """Unpad real 1D tensor
 
-        Slices the input tensor at indices between i0 and i1 along any one axis.
+        Slices the input tensor at indices between i0 and i1 along the last axis.
 
         Parameters
         ----------
         x : tensor
-            Input with at least one axis.
+            Input tensor with least one axis.
         i0 : int
             Start of original signal before padding.
         i1 : int
             End of original signal before padding.
-        axis : int
-            Axis to unpad.
 
         Returns
         -------
         x_unpadded : tensor
             The tensor x[..., i0:i1].
         """
-        return x[agnostic.index_axis(i0, i1, axis, x.ndim)]
+        x = x.reshape(x.shape[:-1])
 
-    @classmethod
-    def fft(cls, x, axis=-1):
-        return torch.fft.fft(x, dim=axis)
+        return x[..., i0:i1]
 
     # we cast to complex here then fft rather than use torch.rfft as torch.rfft is
     # inefficent.
     @classmethod
-    def rfft(cls, x, axis=-1):
+    def rfft(cls, x):
+        cls.contiguous_check(x)
         cls.real_check(x)
 
-        return torch.fft.fft(x, dim=axis)
+        x_r = torch.zeros(x.shape[:-1] + (2,), dtype=x.dtype, layout=x.layout, device=x.device)
+        x_r[..., 0] = x[..., 0]
+
+        return _fft(x_r)
 
     @classmethod
-    def irfft(cls, x, axis=-1):
+    def irfft(cls, x):
+        cls.contiguous_check(x)
         cls.complex_check(x)
 
-        return torch.fft.ifft(x, dim=axis).real
+        return _irfft(x)
 
     @classmethod
-    def ifft(cls, x, axis=-1):
+    def ifft(cls, x):
+        cls.contiguous_check(x)
         cls.complex_check(x)
 
-        return torch.fft.ifft(x, dim=axis)
-
-    @classmethod
-    def conj_reflections(cls, x, ind_start, ind_end, k, N, pad_left, pad_right,
-                         trim_tm):
-        return agnostic.conj_reflections(cls, x, ind_start, ind_end, k, N,
-                                         pad_left, pad_right, trim_tm)
+        return _ifft(x)
 
 
 backend = TorchBackend1D

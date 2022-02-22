@@ -1,11 +1,9 @@
 from ...backend.numpy_backend import NumpyBackend
-from . import agnostic_backend as agnostic
-from scipy.fft import fft, ifft
 
 
 class NumpyBackend1D(NumpyBackend):
     @classmethod
-    def subsample_fourier(cls, x, k, axis=-1):
+    def subsample_fourier(cls, x, k):
         """Subsampling in the Fourier domain
         Subsampling in the temporal domain amounts to periodization in the Fourier
         domain, so the input is periodized according to the subsampling factor.
@@ -19,32 +17,22 @@ class NumpyBackend1D(NumpyBackend):
             imaginary parts of the Fourier transform.
         k : int
             The subsampling factor.
-        axis : int
-            Axis along which to subsample.
-
         Returns
         -------
         res : tensor
             The input tensor periodized along the next to last axis to yield a
             tensor of size x.shape[-2] // k along that dimension.
         """
-        if k == 0:
-            return x
         cls.complex_check(x)
 
-        axis = axis if axis >= 0 else x.ndim + axis  # ensure positive
-        s = list(x.shape)
-        N = s[axis]
-        re = (k, N // k)
-        s.pop(axis)
-        s.insert(axis, re[1])
-        s.insert(axis, re[0])
+        y = x.reshape(-1, k, x.shape[-1] // k)
 
-        res = cls._np.reshape(x, s).mean(axis=axis)
+        res = y.mean(axis=-2)
+
         return res
 
     @classmethod
-    def pad(cls, x, pad_left, pad_right, pad_mode='reflect', axis=-1):
+    def pad(cls, x, pad_left, pad_right):
         """Pad real 1D tensors
         1D implementation of the padding function for real PyTorch tensors.
         Parameters
@@ -58,24 +46,23 @@ class NumpyBackend1D(NumpyBackend):
         pad_right : int
             amount to add on the right of the tensor (at the end of the temporal
             axis).
-        pad_mode : str
-            name of padding to use.
         Returns
         -------
         output : tensor
             The tensor passed along the third dimension.
         """
-        if pad_mode == 'zero':
-            pad_mode = 'constant'
+        if (pad_left >= x.shape[-1]) or (pad_right >= x.shape[-1]):
+            raise ValueError('Indefinite padding size (larger than tensor).')
 
         paddings = ((0, 0),) * len(x.shape[:-1])
         paddings += (pad_left, pad_right),
 
-        output = cls._np.pad(x, paddings, mode=pad_mode)
+        output = cls._np.pad(x, paddings, mode='reflect')
+
         return output
 
     @staticmethod
-    def unpad(x, i0, i1, axis=-1):
+    def unpad(x, i0, i1):
         """Unpad real 1D tensor
         Slices the input tensor at indices between i0 and i1 along the last axis.
         Parameters
@@ -86,43 +73,29 @@ class NumpyBackend1D(NumpyBackend):
             Start of original signal before padding.
         i1 : int
             End of original signal before padding.
-        axis : int
-            Axis to unpad.
-
         Returns
         -------
         x_unpadded : tensor
             The tensor x[..., i0:i1].
         """
-        return x[agnostic.index_axis(i0, i1, axis, x.ndim)]
+        return x[..., i0:i1]
 
     @classmethod
-    def fft(cls, x, axis=-1):
-        return fft(x, axis=axis, workers=-1)
-
-    @classmethod
-    def rfft(cls, x, axis=-1):
+    def rfft(cls, x):
         cls.real_check(x)
 
-        return fft(x, axis=axis, workers=-1)
+        return cls._np.fft.fft(x)
 
     @classmethod
-    def irfft(cls, x, axis=-1):
+    def irfft(cls, x):
         cls.complex_check(x)
 
-        return ifft(x, axis=axis, workers=-1).real
+        return cls._fft.ifft(x).real
 
     @classmethod
-    def ifft(cls, x, axis=-1):
+    def ifft(cls, x):
         cls.complex_check(x)
 
-        return ifft(x, axis=axis, workers=-1)
-
-    @classmethod
-    def conj_reflections(cls, x, ind_start, ind_end, k, N, pad_left, pad_right,
-                         trim_tm):
-        return agnostic.conj_reflections(cls, x, ind_start, ind_end, k, N,
-                                         pad_left, pad_right, trim_tm)
-
+        return cls._fft.ifft(x)
 
 backend = NumpyBackend1D
