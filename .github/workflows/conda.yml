@@ -33,7 +33,7 @@ jobs:
               with:
                 cache-downloads: true
                 cache-env: true
-                environment-file: ./.github/environment.yaml
+                environment-file: ../.github/environment.yaml
                 extra-specs: |
                   python=${{ matrix.python-version }}
                   
