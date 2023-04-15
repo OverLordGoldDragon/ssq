@@ -42,9 +42,13 @@ jobs:
                   
             - name: Install dependencies
               run: |
+                  echo "YES"
                   conda install pytest pytest-cov -c conda-forge
+                  echo "YES 2"
                   conda install numpy scipy matplotlib librosa pyfftw -c conda-forge -n test-env
+                  echo "YES 3"
                   conda install numba -c numba
+                  echo "YES 4"
                   
                   conda run -n test-env python3 -m pip install --upgrade pip
                   conda run -n test-env python3 -m pip install -r requirements.txt
