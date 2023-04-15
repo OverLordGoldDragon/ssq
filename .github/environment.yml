@@ -1,0 +1,17 @@
+name: ssqueezepy
+channels:
+  - conda-forge
+  - defaults
+  - numba
+dependencies:
+  - conda-build
+  - pytest
+  - pytest-cov
+  - pip
+  - python >=3.7
+  - numpy
+  - scipy 
+  - matplotlib 
+  - librosa 
+  - pyfftw
+  - numba

@@ -26,30 +26,20 @@ jobs:
                 python-version: [3.7]
 
         steps:
-            - uses: actions/checkout@v1
-            - name: Add Conda to path
-              run: echo $CONDA >> $GITHUB_PATH
-              
-            - name: Set up Conda
-              run: |
-                  conda config --set always_yes yes --set changeps1 no
-                  conda install setuptools
-                  conda install conda
-                  conda install -c conda-forge conda
-                  conda update --force conda
-                  conda info -a
-                  conda create -q -n test-env python=${{ matrix.python-version }}
+            - uses: actions/checkout@v3
+            
+            - name: Install Conda environment with Micromamba
+              uses: mamba-org/provision-with-micromamba@main
+              with:
+                cache-downloads: true
+                cache-env: true
+                environment-file: .github/environment.yaml
+                extra-specs: |
+                  python=${{ matrix.python-version }}
                   
-            - name: Install dependencies
+            - name: additional setup
+              shell: bash -l {0}
               run: |
-                  echo "YES"
-                  conda install pytest pytest-cov -c conda-forge
-                  echo "YES 2"
-                  conda install numpy scipy matplotlib librosa pyfftw -c conda-forge -n test-env
-                  echo "YES 3"
-                  conda install numba -c numba
-                  echo "YES 4"
-                  
                   conda run -n test-env python3 -m pip install --upgrade pip
                   conda run -n test-env python3 -m pip install -r requirements.txt
                   conda run -n test-env python3 -m pip install -r requirements-dev.txt
