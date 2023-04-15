@@ -1,7 +1,0 @@
-[run]
-source = kymatio
-parallel = True
-
-[report]
-show_missing = True
-precision = 3
