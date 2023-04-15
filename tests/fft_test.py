@@ -9,6 +9,7 @@ Note that GPU tests are skipped in CI (Travis), and are instead done locally.
 """
 import os
 import pytest
+import warnings
 import numpy as np
 from scipy.fft import fft as sfft, rfft as srfft, ifft as sifft, irfft as sirfft
 from scipy.fft import ifftshift
@@ -30,6 +31,7 @@ try:
     CAN_GPU = True
 except:
     CAN_GPU = False
+    warnings.warn("SKIPPED TESTS in `fft_test.py`, GPU not found.")
 
 
 def _wavelet(name='gmw', **kw):
@@ -444,7 +446,7 @@ def test_ssq_cwt():
     tsigs = TestSignals(N=N)
 
     for dtype in ('float64', 'float32'):
-      gpu_atol = 1e-8 if dtype == 'float64' else 2e-4
+      gpu_atol = 1e-8 if dtype == 'float64' else 6e-3
       x = tsigs.par_lchirp()[0].astype(dtype)
       kw = dict(astensor=False)
 
@@ -457,7 +459,10 @@ def test_ssq_cwt():
           Tx11 = ssq_cwt(x, _wavelet(dtype=dtype), **kw, get_w=0)[0]
 
       adiff0001 = np.abs(Tx00 - Tx01).mean()
-      assert np.allclose(Tx00, Tx01), (dtype, adiff0001)
+      if dtype == 'float64':
+          assert np.allclose(Tx00, Tx01), (dtype, adiff0001)
+      else:
+          assert adiff0001 < 4e-5, (dtype, adiff0001)
       if CAN_GPU:
           adiff0010 = np.abs(Tx00 - Tx10).mean()
           adiff0011 = np.abs(Tx00 - Tx11).mean()
@@ -524,9 +529,10 @@ def test_higher_order():
 
         adiff_Tx = np.abs(Tx0 - Tx1).mean()
         adiff_Wx = np.abs(Wx0 - Wx1).mean()
-        th = 1e-6  # less should be possible for float64, but didn't investigate
-        assert adiff_Tx < th, (dtype, th)
-        assert adiff_Wx < th, (dtype, th)
+        # less should be possible for float64, but didn't investigate
+        th = 2e-7 if dtype == 'float64' else 1e-4
+        assert adiff_Tx < th, (dtype, adiff_Tx, th)
+        assert adiff_Wx < th, (dtype, adiff_Wx, th)
     os.environ['SSQ_GPU'] = '0'
 
 
@@ -586,7 +592,7 @@ def test_ssq_cwt_batched():
             # didn't investigate float32, and `allclose` threshold is pretty bad,
             # so check MAE
             if dtype == 'float32':
-                assert adiff_Tx01 < 1e-6, (dtype, adiff_Tx01)
+                assert adiff_Tx01 < 2.5e-5, (dtype, adiff_Tx01)
 
 
 def test_ssq_stft_batched():

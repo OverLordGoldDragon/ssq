@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# Copyright © OverLordGoldDragon
+# Copyright © 2020 John Muradeli
 # Licensed under the terms of the MIT License
 # (see ssqueezepy/__init__.py for details)
 
@@ -48,15 +48,16 @@ setup(
     packages=find_packages(exclude=['tests', 'examples']),
     url="https://github.com/OverLordGoldDragon/ssqueezepy",
     license="MIT",
-    author="OverLordGoldDragon",
-    author_email="16495490+OverLordGoldDragon@users.noreply.github.com",
+    author="John Muradeli",
+    author_email="john.muradeli@gmail.com",
     description=("Synchrosqueezing, wavelet transforms, and "
                  "time-frequency analysis in Python"),
     long_description=read_file('README.md'),
     long_description_content_type="text/markdown",
     keywords=(
         "signal-processing python synchrosqueezing wavelet-transform cwt stft "
-        "morse-wavelet ridge-extraction time-frequency time-frequency-analysis"
+        "morse-wavelet ridge-extraction time-frequency time-frequency-analysis "
+        "visualization"
     ),
     install_requires=get_requirements('requirements.txt'),
     tests_require=["pytest>=4.0", "pytest-cov"],
@@ -72,8 +73,11 @@ setup(
         "Intended Audience :: Information Technology",
         "Intended Audience :: Science/Research",
         "Topic :: Utilities",
+        "Topic :: Multimedia :: Sound/Audio :: Analysis",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Information Analysis",
+        "Topic :: Scientific/Engineering :: Bio-Informatics",
+        "Topic :: Scientific/Engineering :: Visualization",
         "Topic :: Software Development",
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],

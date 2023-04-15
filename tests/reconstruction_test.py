@@ -65,7 +65,7 @@ th = .1
 def test_ssq_cwt():
     errs = []
     for fn in test_fns:
-        x, ts = fn(2048)
+        x, ts = fn(2048)  # may not return length 2048
         for scales in ('log', 'log-piecewise', 'linear'):
             if fn.__name__ == 'low_freqs':
                 if scales == 'linear':
@@ -141,7 +141,7 @@ def test_component_inversion():
     Tx, *_ = ssq_cwt(x, wavelet, scales='log:maximal', nv=32, t=ts, flipud=0)
 
     # hand-coded, subject to failure
-    bw, slope, offset = .035, .44, .58
+    bw, slope, offset = .035, .44, .45
     Cs, freqband = lin_band(Tx, slope, offset, bw, norm=(0, 2e-1))
 
     xrec = issq_cwt(Tx, wavelet, Cs, freqband)[0]
@@ -154,7 +154,7 @@ def test_component_inversion():
     print("signal   MAD/RMS: %.6f" % err_sig)
     print("spectrum MAD/RMS: %.6f" % err_spc)
     assert err_sig <= .40, f"{err_sig} > .40"
-    assert err_spc <= .15, f"{err_spc} > .15"
+    assert err_spc <= .10, f"{err_spc} > .10"
 
 
 def test_stft():
@@ -208,9 +208,9 @@ def test_ssq_stft():
 
 def test_stft_vs_librosa():
     try:
-        from librosa import stft as lstft
+        lstft
     except:
-        return  # TODO undo
+        return
 
     np.random.seed(0)
     # try all even/odd combos
@@ -222,7 +222,7 @@ def test_stft_vs_librosa():
              Sx  = stft( x, n_fft=n_fft, hop_len=hop_len,    win_len=win_len,
                          window='hann', modulated=False, dtype='float64')
              lSx = lstft(x, n_fft=n_fft, hop_length=hop_len, win_length=win_len,
-                         window='hann')
+                         window='hann', pad_mode='reflect')
 
              if n_fft % 2 == 0:
                  if hop_len == 1:
@@ -246,7 +246,7 @@ def _maybe_viz(Wx, xo, xrec, title, err):
     else:
         mx = .9*mx
 
-    imshow(Wx, abs=1, norm=(0, mx), cmap='jet', show=1, title=title)
+    imshow(Wx, abs=1, norm=(0, mx), cmap='turbo', show=1, title=title)
     plot(xo, title="Original vs reconstructed | MAD/RMS=%.4f" % err)
     plot(xrec, show=1)
 

@@ -64,7 +64,7 @@ def gmw(gamma=None, beta=None, norm=None, order=None, centered_scale=None,
             False by default for consistency with other `ssqueezepy` wavelets.
 
         dtype: str / type (np.dtype) / None
-            See `wavelets.Wavelet`.
+            See `help(wavelets.Wavelet)`.
 
     # Returns
         psihfn: function
@@ -738,7 +738,7 @@ def _moments_to_cumulants(moments):
 
     for n in range(1, len(moments)):
         coeff = 0
-        for k in range(1, n - 1):
+        for k in range(1, n):
             coeff += nCk(n - 1, k - 1
                          ) * cumulants[k] * (moments[n - k] / moments[0])
         cumulants[n] = (moments[n] / moments[0]) - coeff

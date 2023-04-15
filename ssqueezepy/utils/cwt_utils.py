@@ -67,7 +67,8 @@ def cwt_scalebounds(wavelet, N, preset=None, min_cutoff=None, max_cutoff=None,
                     cutoff=None, bin_loc=None, bin_amp=None, use_padded_N=True,
                     viz=False):
     """Finds range of scales for which `wavelet` is "well-behaved", as
-    determined by `preset`.
+    determined by `preset`. Assumes `wavelet` is uni-modal (one peak in freq
+    domain); may be inaccurate otherwise.
 
     `min_scale`: found such that freq-domain wavelet takes on `cutoff` of its max
     value on the greatest bin.
@@ -151,7 +152,7 @@ def cwt_scalebounds(wavelet, N, preset=None, min_cutoff=None, max_cutoff=None,
                 raise ValueError("must have `max_cutoff > min_cutoff` "
                                  "(got %s, %s)" % (max_cutoff, min_cutoff))
 
-        bin_loc = bin_loc or (1 if preset == 'maximal' else None)
+        bin_loc = bin_loc or (2 if preset == 'maximal' else None)
         bin_amp = bin_amp or (1 if preset == 'maximal' else None)
         cutoff  = cutoff if (cutoff is not None) else defaults['cutoff']
 
@@ -273,17 +274,17 @@ def infer_scaletype(scales):
         raise TypeError("`scales.dtype` must be np.float32 or np.float64 "
                         "(got %s)" % scales.dtype)
 
-    th_log = 1e-15 if scales.dtype == np.float64 else 4e-7
+    th_log = 4e-15 if scales.dtype == np.float64 else 8e-7
     th_lin = th_log * 1e3  # less accurate for some reason
 
-    if np.mean(np.abs(np.diff(scales, 2, axis=0))) < th_lin:
-        scaletype = 'linear'
-        nv = None
-
-    elif np.mean(np.abs(np.diff(np.log(scales), 2, axis=0))) < th_log:
+    if np.mean(np.abs(np.diff(np.log(scales), 2, axis=0))) < th_log:
         scaletype = 'log'
         # ceil to avoid faulty float-int roundoffs
         nv = int(np.round(1 / np.diff(np.log2(scales), axis=0)[0]))
+
+    elif np.mean(np.abs(np.diff(scales, 2, axis=0))) < th_lin:
+        scaletype = 'linear'
+        nv = None
 
     elif logscale_transition_idx(scales) is None:
         raise ValueError("could not infer `scaletype` from `scales`; "
@@ -343,6 +344,7 @@ def make_scales(N, min_scale=None, max_scale=None, nv=32, scaletype='log',
     mx_pow = mn_pow + na
 
     if scaletype == 'log':
+        # TODO discretize per `logspace` instead
         scales = 2 ** (np.arange(mn_pow, mx_pow) / nv)
 
     elif scaletype == 'log-piecewise':
@@ -380,7 +382,7 @@ def logscale_transition_idx(scales):
     # every other value must be zero, assert it is so
     scales_diff2[idx - 2] = 0
 
-    th = 1e-14 if str(scales.dtype) == 'float64' else 1e-6
+    th = 1e-14 if scales.dtype == np.float64 else 1e-6
 
     if not np.any(diff2_max > 100*np.abs(scales_diff2).mean()):
         # everything's zero, i.e. no transition detected
@@ -697,6 +699,8 @@ def _process_fs_and_t(fs, t, N):
     """Ensures `t` is uniformly-spaced and of same length as `x` (==N)
     and returns `fs` and `dt` based on it, or from defaults if `t` is None.
     """
+    if fs is not None and t is not None:
+        WARN("`t` will override `fs` (both were passed)")
     if t is not None:
         if len(t) != N:
             # not explicitly used anywhere but ensures wrong `t` wasn't supplied

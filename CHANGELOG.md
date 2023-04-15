@@ -1,19 +1,77 @@
+### 0.6.4
+
+#### FEATURES
+ - Torch inputs to `cwt` and `ssq_cwt` now supported
+ 
+#### FEATURES (minor)
+ - added `complex=2` option to `visuals.plot`
+ - added `norm_scaling` kwarg to `visuals.imshow`
+ - extended `visuals.hist`
+ - `padsignal` supports torch inputs
+
+#### FIXES
+ - `_gmw.mom2cum`: fix formula mistake, `range(1, n - 1)` -> `range(1, n)`, by @bartvm
+ - fix flipping `ssq_freqs` in torch
+ - `istft` edge case with `dtype='float32'`, time-localized `window`, and large `hop_len`
+ - `istft` default `N` was supposed to be "largest possible" but wasn't; fixed
+ - `istft` division by window norm now accounts for values below float `tiny`
+ - fixed Ridge Extraction README
+ - fixed important typo in `ridge_extraction.py`
+ - fix: librosa defaults to zero padding, which broke `reconstruction_test`
+ - fixed `nv` criterion for ignoring sanity check
+ 
+#### MISC 
+ - slight performance boost in `_process_ssq_params`
+ - removed `xp -= xp.mean()`, a no-op with CWT, badly copied from MATLAB (original ssq code)
+ - increased tolerance in `infer_scaletype` for `float32`, had false negatives
+ - simplify `utils.backend.astype`
+ - simplify `p2up`
+ - `nan_checks` now defaults to `True` only for NumPy inputs
+
+
+### 0.6.3 (1-23-2022): QoL, cleanups, fixes
+
+#### FEATURES
+ - `freq_to_scale` & `scale_to_freq`, experimental
+ - Improved auto-`scales`
+ - Optional `nan_checks`
+ - Improved default `gamma`
+
+#### BREAKING
+ - `ssq_freqs` now correctly maps frequencies to corresponding rows of `Tx` for `ssq_cwt`, no longer requiring `[::-1]`
+ - `scales` returned as 1D
+ - `extract_ridges`: `ridge_f` (formerly `fridge`) now returns `scales` rather than `log(scales)`
+ - `extract_ridges`: renamed: `fridge -> ridge_f`, `max_energy -> ridge_e`
+
+#### FIXES
+ - False warning for `t` & `fs`
+ - Extended scope of `astensor` to `scales`, `ssq_freqs`
+ - `visuals`: improve `xticks` & `yticks` handling
+
+#### MISC
+ - Added citation; README changes; docs changes
+ - `experimental`: remove `phase_squeeze`, `phase_transform`
+ - `visuals.imshow`: default `cmap='turbo'`
+ - `visuals`: added `auto_xlims`, `squeeze`
+
+
+
 ### 0.6.1 (3-24-2021): GPU & CPU acceleration; caching
 
 #### FEATURES
  - GPU acceleration & multi-thread CPU support for all forward transforms (`cwt, stft, ssq_cwt, ssq_stft`); see [Performance guide](https://github.com/OverLordGoldDragon/ssqueezepy/blob/master/ssqueezepy/README.md#performance-guide)
  - `ssqueezepy.FFT`, supporting single- & multi-threaded CPU execution, and GPU execution, optionally via `pyfftw`
- - `Wavelet(dtype=)` option that enables wavelets, `cwt`, and `ssq_cwt` to compute at single and double precision
+ - `dtype='float32'` and `'float64'` support for `cwt, stft, ssq_cwt, ssq_stft, Wavelet`
  - `Wavelet.Psih(scale=, N=)` will store the computed wavelet(s) and, if subsequent calls have identical `scale` and `N`, will return it directly without recomputing (significant speedup).
- - `cwt` significantly sped up: 1) per `Wavelet` reuse; 2) rid of `ifftshift` and `*pn` (they undo each other); 3) eliminated redundant allocation in `vectorized`
- - `configs.ini`: added new configurable defaults
- 
+
 #### BREAKING
+ - Dependency added: `ftz`
  - Default `downsample`: 3 -> 4 in `utils.cwt_utils.make_scales`
  - `EPS` deprecated in favor of `EPS32` & `EPS64` for respective precisions
  - `ssq_cwt(flipud=True)` default now returns `Tx = np.flipud(Tx)` relative to previous versions
  - `ssq_cwt` & `ssq_stft` number of variables returned now depend on `get_w, get_dWx` parameters; see docstrings
  - `dtype` defaults to `'float32'` (can change via `configs.ini`); neither `cwt` nor `stft`, for most applications, require extreme precision like filters do, so defaults should prioritize compute
+ - `TestSignals.make_signals()` now returns list of signals by default instead of dict with meta info (now accessible via `get_params=True`)
 
 #### FIXES
  - `ssq_stft` would still default `n_fft = len(x)`; defaulter line removed, delegated to `stft`.
@@ -21,14 +79,18 @@
  - `ssqueezing`: `_get_center_frequency` computed at `N` instead of `p2up(N)` with `padtype != None`
 
 #### MISC
+ - `configs.ini`: added new configurable defaults
  - `ssqueezing.ssqueeze`: added `padtype` arg (see FIXES)
  - `ssqueezing.ssqueeze` & `ssq_cwt`: added `find_closest_parallel` arg (see its docstring)
  - `utils.cwt_utils`: `find_downsampling_scale` added argument `N`
  - `visuals.imshow`: removed default `'interpolation' = 'none'`
  - Added `# Arguments:` docstring to `Wavelet`
+ - `cwt` significantly sped up: 1) per `Wavelet` reuse; 2) rid of `ifftshift` and `*pn` (they undo each other); 3) eliminated redundant allocation in `vectorized`
+
 
 #### NOTES
  - Undocumented changes; skimming docstrings / source code should suffice for most purposes
+
 
 
 ### 0.6.0 (2-19-2021): Generalized Morse Wavelets, Ridge Extraction, Testing Suite
@@ -88,6 +150,7 @@
  - `tests/` added: `gmw_test.py`, `test_signals_test.py`, `ridge_extraction_test.py`
  - `examples/` added: `extracting_ridges.py`, `scales_selection.py`, `ridge_extract_readme/`: `README.md`, `imgs/*`
  - Created `MANIFEST.in`
+
 
 
 ### 0.5.5 (1-14-2021): STFT & Synchrosqueezed STFT

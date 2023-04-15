@@ -13,10 +13,7 @@ def allclose(a, b, device='cuda'):
 
 def astype(x, dtype, device='cuda'):
     if is_tensor(x):
-        if isinstance(device, torch.device):
-            device = device.type
-        out = x.type(_torch_dtype(dtype))
-        return out.cuda() if 'cuda' in str(device) else out
+        return x.to(dtype=_torch_dtype(dtype))
     return x.astype(dtype)
 
 
@@ -50,9 +47,8 @@ def is_tensor(*args, mode='all'):
 
 
 def is_dtype(x, str_dtype):
-    if not isinstance(str_dtype, (list, tuple)):
-        str_dtype = [str_dtype]
-    return any(str(x).split('.')[-1] == dtype for dtype in str_dtype)
+    return (str_dtype in str(x.dtype) if isinstance(str_dtype, str) else
+            any(sd in str(x.dtype) for sd in str_dtype))
 
 
 def atleast_1d(x, dtype=None, device='cuda'):

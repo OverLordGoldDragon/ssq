@@ -43,10 +43,10 @@ variety of localization characteristics.
 """
 import inspect
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.signal as sig
 from numpy.fft import rfft
 
+from . import plt
 from ._ssq_cwt import ssq_cwt
 from ._ssq_stft import ssq_stft
 from .utils import WARN, _textwrap
@@ -207,7 +207,7 @@ class TestSignals():
             w *= (2*pi)
         return (phi, w) if get_w else phi
 
-    def echirp(self, N=None, fmin=.1, fmax=None, **tkw):
+    def echirp(self, N=None, fmin=1, fmax=None, **tkw):
         """
         >>> f(t)   = a*b^t
         >>> phi(t) = (a/ln(b)) * (b^t - b^tmin)
@@ -481,7 +481,7 @@ class TestSignals():
                 If not None, will also plot DFT of each signal along the signal.
                 If `'cols'`, will stack horizontally - if `'rows'`, vertically.
         """
-        data = self.make_signals(signals, N)
+        data = self.make_signals(signals, N, get_params=True)
         if dft not in (None, 'rows', 'cols'):
             raise ValueError(f"`dft` must be 'rows', 'cols', or None (got {dft})")
         elif dft == 'cols':
@@ -510,8 +510,8 @@ class TestSignals():
         Also see `help(ssqueezepy._test_signals)`, and
         `help(TestSignals.make_signals)`.
         """
-        data = self.make_signals(signals, N)
-        default_pkw = dict(abs=1, cmap='jet', show=1)
+        data = self.make_signals(signals, N, get_params=True)
+        default_pkw = dict(abs=1, show=1)
 
         for name, (x, t, (fparams, aparams)) in data.items():
             out = fn(x, t, (name, fparams, aparams))
@@ -529,13 +529,14 @@ class TestSignals():
                     imshow(out, **pkw)
 
     #### utils ###############################################################
-    def make_signals(self, signals='all', N=None):
+    def make_signals(self, signals='all', N=None, get_params=False):
         """Generates `signals` signals of length `N`.
 
-        Returns dictionary of `{name: x, t, (fparams, aparams)}`, where `x` is
-        the signal, `t` is its time vector, `fparams` is a dict of keyword args
-        to the carrier, and `aparams` to the amplitude modulator (if applicable,
-        e.g. `lchirp:am-sine').
+        Returns list of signals `[x0, x1, ...]` (or if `get_params`, dictionary
+        of `{name: x, t, (fparams, aparams)}`), where `x` is the signal,
+        `t` is its time vector, `fparams` is a dict of keyword argsto the carrier,
+        and `aparams` to the amplitude modulator (if applicable, e.g.
+        `lchirp:am-sine').
         `fparams` may additionally contain a special kwarg: `snr`, not passed to
         carrier `fn`, that adds random normal noise of SNR `snr` to signal.
 
@@ -582,6 +583,11 @@ class TestSignals():
                 x += noise
 
             data[name] = (x, t, (fparams, aparams))
+
+        if not get_params:
+            data = [d[0] for d in data.values()]
+            if len(data) == 1:
+                data = data[0]
         return data
 
     @classmethod
@@ -813,7 +819,7 @@ class TestSignals():
             name, fparams, aparams = params
             title1, title2 = self._title_cwt(wavelet, name, x, fparams, aparams)
 
-            pkw = dict(abs=1, cmap='jet', ticks=0, fig=fig)
+            pkw = dict(abs=1, ticks=0, fig=fig)
             imshow(Wx, **pkw, ax=axes[i, 0], show=0, title=title1)
             imshow(Tx, **pkw, ax=axes[i, 1], show=0, title=title2)
 
@@ -864,7 +870,7 @@ class TestSignals():
 
         fig, axes = plt.subplots(2, 2, figsize=(w * 12, h * 12))
 
-        pkw = dict(abs=1, cmap='jet', ticks=0, fig=fig)
+        pkw = dict(abs=1, ticks=0, fig=fig)
         imshow(Wx,  **pkw, ax=axes[0, 0], show=0, title=ctitle1)
         imshow(Twx, **pkw, ax=axes[0, 1], show=0, title=ctitle2)
         imshow(Sx,  **pkw, ax=axes[1, 0], show=0, title=stitle1)

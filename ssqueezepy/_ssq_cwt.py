@@ -12,15 +12,16 @@ from ._cwt import cwt
 def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
             ssq_freqs=None, padtype='reflect', squeezing='sum', maprange='peak',
             difftype='trig', difforder=None, gamma=None, vectorized=True,
-            preserve_transform=None, astensor=True, order=0, patience=0,
-            flipud=True, cache_wavelet=None, get_w=False, get_dWx=False):
+            preserve_transform=None, astensor=True, order=0, nan_checks=None,
+            patience=0, flipud=True, cache_wavelet=None,
+            get_w=False, get_dWx=False):
     """Synchrosqueezed Continuous Wavelet Transform.
     Implements the algorithm described in Sec. III of [1].
 
     Uses `wavelet.dtype` precision.
 
     # Arguments:
-        x: np.ndarray
+        x: np.ndarray / torch.Tensor
             Input vector(s), 1D or 2D. See `help(cwt)`.
 
         wavelet: str / tuple[str, dict] / `wavelets.Wavelet`
@@ -32,7 +33,7 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
         nv: int / None
             Number of voices (wavelets per octave). Suggested >= 16.
 
-        fs, t
+        fs, t: float, np.ndarray
             See `help(_cwt.cwt)`.
 
         ssq_freqs: str['log', 'linear'] / np.ndarray / None
@@ -93,7 +94,14 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
                 w[abs(Wx) < beta] = inf
             This is used to zero `Wx` where `w=0` in computing `Tx` to ignore
             contributions from points with indeterminate phase.
-            Default = sqrt(machine epsilon) = np.sqrt(np.finfo(np.float64).eps)
+            Default = 10 * (machine epsilon) = 10 * np.finfo(np.float64).eps
+            (or float32)
+
+            It is recommended to standardize the input, or at least not
+            pass a small-valued input, to avoid false filtering by `gamma`,
+            especially if input obeys a power scaling law
+            (e.g. `~1/f` with EEG/MEG, and similar with audio).
+            # TODO warn user if `x.max()` is small?
 
         vectorized: bool (default True)
             Whether to vectorize CWT, i.e. compute quantities for all scales at
@@ -113,6 +121,12 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
             `order > 0` computes ssq of `cwt` taken with higher-order GMWs.
             If tuple, computes ssq of average of `cwt`s taken at each specified
             order. See `help(_cwt.cwt_higher_order)`.
+
+        nan_checks: bool / None
+            Checks whether input has `nan` or `inf` values, and zeros them.
+            `False` saves compute. Doesn't support torch inputs.
+
+            Defaults to `True` for NumPy inputs, else `False`.
 
         patience: int / tuple[int, int]
             pyFFTW parameter for faster FFT on CPU; see `help(ssqueezepy.FFT)`.
@@ -200,7 +214,7 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
             w = phase_cwt(Wx, None, difftype, gamma)
         elif difftype == 'numeric':
             # !!! tested to be very inaccurate for small scales
-            # calculate derivative numericly
+            # calculate derivative numerically
             _, n1, _ = p2up(N)
             Wx = Wx[:, (n1 - 4):(n1 + N + 4)]
             w = phase_cwt_num(Wx, dt, difforder, gamma)
@@ -214,9 +228,10 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
     # CWT with higher-order GMWs
     if isinstance(order, (tuple, list, range)) or order > 0:
         # keep padding for `trigdiff`
-        kw = dict(wavelet=wavelet, scales=scales, fs=fs, t=t, nv=nv,
+        kw = dict(wavelet=wavelet, scales=scales, fs=fs, nv=nv,
                   l1_norm=True, derivative=False, padtype=padtype, rpadded=True,
-                  vectorized=vectorized, cache_wavelet=cache_wavelet)
+                  vectorized=vectorized, astensor=True,
+                  cache_wavelet=cache_wavelet, nan_checks=nan_checks)
         _, n1, _ = p2up(N)
         average = isinstance(order, (tuple, list, range))
 
@@ -236,7 +251,8 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
         Wx, scales, dWx = cwt(x, wavelet, scales=scales, fs=fs, nv=nv,
                               l1_norm=True, derivative=True, padtype=padtype,
                               rpadded=rpadded, vectorized=vectorized,
-                              patience=patience, cache_wavelet=cache_wavelet)
+                              astensor=True, patience=patience,
+                              cache_wavelet=cache_wavelet, nan_checks=nan_checks)
 
     # make copy of `Wx` if specified
     if preserve_transform is None:
@@ -249,7 +265,7 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
 
     # gamma
     if gamma is None:
-        gamma = np.sqrt(EPS64 if S.is_dtype(Wx, 'complex128') else EPS32)
+        gamma = 10 * (EPS64 if S.is_dtype(Wx, 'complex128') else EPS32)
 
     # compute `w` if `get_w` and free `dWx` from memory if `not get_dWx`
     if get_w:
@@ -268,19 +284,22 @@ def ssq_cwt(x, wavelet='gmw', scales='log-piecewise', nv=None, fs=None, t=None,
     was_padded = bool(padtype is not None)
 
     # synchrosqueeze
-    Tx, ssq_freqs = ssqueeze(_Wx, w, ssq_freqs, scales, fs=fs, t=t,
+    Tx, ssq_freqs = ssqueeze(_Wx, w, ssq_freqs, scales, fs=fs,
                              squeezing=squeezing, maprange=maprange,
                              wavelet=wavelet, gamma=gamma, was_padded=was_padded,
                              flipud=flipud, dWx=_dWx, transform='cwt')
 
+    # postprocessing & return
     if difftype == 'numeric':
         Wx = Wx[:, 4:-4]
         Tx = Tx[:, 4:-4]
         w  = w[:,  4:-4] if w is not None else None
 
     if not astensor and S.is_tensor(Tx):
-        Tx, Wx, w, dWx = [g.cpu().numpy() if S.is_tensor(g) else g
-                          for g in (Tx, Wx, w, dWx)]
+        Tx, Wx, w, dWx, scales, ssq_freqs = [
+            g.cpu().numpy() if S.is_tensor(g) else g
+            for g in (Tx, Wx, w, dWx, scales, ssq_freqs)]
+    scales = scales.squeeze()
 
     if get_w and get_dWx:
         return Tx, Wx, ssq_freqs, scales, w, dWx
@@ -426,12 +445,7 @@ def phase_cwt(Wx, dWx, difftype='trig', gamma=None, parallel=None):
                 CPU execution.
 
         gamma: float / None
-            CWT phase threshold. Sets `w=inf` for small values of `Wx` where
-            phase computation is unstable and inaccurate (like in DFT):
-                w[abs(Wx) < beta] = inf
-            This is used to zero `Wx` where `w=0` in computing `Tx` to ignore
-            contributions from points with indeterminate phase.
-            Default = sqrt(machine epsilon) = np.sqrt(np.finfo(np.float64).eps)
+            See `help(ssqueezepy.ssq_cwt)`.
 
         parallel: bool (default `ssqueezepy.IS_PARALLEL()`)
             Whether to use multiple CPU threads (ignored if input is tensor).
@@ -513,12 +527,7 @@ def phase_cwt_num(Wx, dt, difforder=4, gamma=None):
             Order of differentiation (default=4).
 
         gamma: float
-            CWT phase threshold. Sets `w=inf` for small values of `Wx` where
-            phase computation is unstable and inaccurate (like in DFT):
-                w[abs(Wx) < beta] = inf
-            This is used to zero `Wx` where `w=0` in computing `Tx` to ignore
-            contributions from points with indeterminate phase.
-            Default = sqrt(machine epsilon) = np.sqrt(np.finfo(np.float64).eps)
+            See `help(ssqueezepy.ssq_cwt)`.
 
     # Returns:
         w: np.ndarray
@@ -573,7 +582,7 @@ def phase_cwt_num(Wx, dt, difforder=4, gamma=None):
 
     # epsilon from Daubechies, H-T Wu, et al.
     # gamma from Brevdo, H-T Wu, et al.
-    gamma = gamma or np.sqrt(EPS64 if Wx.dtype == np.cfloat else EPS32)
+    gamma = gamma or 10 * (EPS64 if Wx.dtype == np.cfloat else EPS32)
     w[np.abs(Wx) < gamma] = np.inf
 
     # see `phase_cwt`, though negatives may no longer be in minority

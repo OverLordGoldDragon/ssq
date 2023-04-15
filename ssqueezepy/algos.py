@@ -68,10 +68,10 @@ def _process_ssq_params(Wx, w_or_dWx, ssq_freqs, const, logscale, flipud, out,
                  (const.size if isinstance(const, np.ndarray) else 1))
     if len_const != len(Wx):
         if gpu:
-            const_arr = torch.tensor(len(Wx) * [const], dtype=Wx.dtype,
-                                     device=Wx.device)
+            const_arr = torch.full((len(Wx),), fill_value=const,
+                                   device=Wx.device, dtype=Wx.dtype)
         else:
-            const_arr = np.array(len(Wx) * [const])
+            const_arr = np.full(len(Wx), const, dtype=Wx.dtype)
     elif gpu and isinstance(const, np.ndarray):
         const_arr = torch.as_tensor(const, dtype=Wx.dtype, device=Wx.device)
     else:
@@ -588,6 +588,29 @@ def _replace_under_abs_gpu(w, Wx, value=0., replacement=0.):
 
     _run_on_gpu(kernel, blockspergrid, threadsperblock,
                 *kernel_args, **kernel_kw)
+
+
+def zero_denormals(x, parallel=None):
+    """Denormals are very small non-zero numbers that can significantly slow CPU
+    execution (e.g. FFT). See https://github.com/scipy/scipy/issues/13764
+    """
+    # take a little bigger than smallest, seems to improve FFT speed
+    parallel = parallel if parallel is not None else IS_PARALLEL()
+    tiny = 1000 * np.finfo(x.dtype).tiny
+    fn = _zero_denormals_par if parallel else _zero_denormals
+    fn(x.ravel(), tiny)
+
+@jit(nopython=True, cache=True)
+def _zero_denormals(x, tiny):
+    for i in range(x.size):
+        if x[i] < tiny and x[i] > -tiny:
+            x[i] = 0
+
+@jit(nopython=True, cache=True, parallel=True)
+def _zero_denormals_par(x, tiny):
+    for i in prange(x.size):
+        if x[i] < tiny and x[i] > -tiny:
+            x[i] = 0
 
 #### misc (short) ############################################################
 @jit(nopython=True, cache=True)

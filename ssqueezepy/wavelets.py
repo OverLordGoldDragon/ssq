@@ -421,7 +421,7 @@ class Wavelet():
         def set_dtype_from_out():
             # 32 will promote to 64 if other params are 64
             out_dtype = self.fn(S.asarray([1.], dtype='float32')).dtype
-            if S.is_dtype(out_dtype, ('complex64', 'complex128')):
+            if any(tp in str(out_dtype) for tp in ('complex64', 'complex128')):
                 # 'bump' wavelet case
                 out_dtype = ('float32' if 'complex64' in str(out_dtype) else
                              'float64')
@@ -446,7 +446,7 @@ class Wavelet():
         elif isinstance(wavelet, str):
             wavopts = {}
 
-        user_passed_float32 = any(S.is_dtype(t, 'float32')
+        user_passed_float32 = any('float32' in str(t)
                                   for t in (self.dtype, wavopts.get('dtype', 0)))
         if isinstance(wavelet, str):
             wavelet = wavelet.lower()
@@ -503,7 +503,7 @@ def morlet(mu=None, dtype=None):
     For full correspondence see `help(_gmw.gmw)`.
 
     https://en.wikipedia.org/wiki/Morlet_wavelet#Definition
-    https://www.desmos.com/calculator/cuypxm8s1y
+    https://www.desmos.com/calculator/0nslu0qivv
     """
     mu, dtype = gdefaults('wavelets.morlet', mu=mu, dtype=dtype)
     cs = (1 + np.exp(-mu**2) - 2 * np.exp(-3/4 * mu**2)) ** (-.5)
@@ -612,7 +612,18 @@ def center_frequency(wavelet, scale=None, N=1024, kind='energy', force_int=None,
     """Center frequency (radian) of `wavelet`, either 'energy', 'peak',
     or 'peak-ct'.
 
-    Detailed overview: https://dsp.stackexchange.com/q/72042/50076
+    Detailed overviews:
+        (1) https://dsp.stackexchange.com/a/76371/50076
+        (2) https://dsp.stackexchange.com/q/72042/50076
+
+    **Note**: implementations of `center_frequency`, `time_resolution`, and
+    `freq_resolution` are discretized approximations of underlying
+    continuous-time parameters. This is a flawed approach (see (1)).
+      - Caution is advised for scales near minimum and maximim (obtained via
+        `cwt_scalebounds(..., preset='maximal')`), where inaccuracies may be
+        significant.
+      - For intermediate scales and sufficiently large N (>=1024), the methods
+        are reliable. May improve in the future
 
     # Arguments
         wavelet: wavelets.Wavelet

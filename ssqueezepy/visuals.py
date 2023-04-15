@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 """Convenience visual methods"""
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
 from .algos import find_closest, find_maximum
 from .configs import gdefaults
+from . import plt
 
 
 #### Visualizations ##########################################################
@@ -17,7 +17,7 @@ def wavelet_tf(wavelet, N=2048, scale=None, notext=False, width=1.1, height=1):
     accurately captured.
 
     `wavelet` is instance of `wavelets.Wavelet` or its valid `wavelet` argument.
-    See also: https://www.desmos.com/calculator/nqowgloycy
+    See also: https://www.desmos.com/calculator/0nslu0qivv
     """
     def pick_scale(wavelet, N):
         """Pick scale such that both time- & freq-domain wavelets look nice."""
@@ -324,8 +324,7 @@ def wavelet_heatmap(wavelet, scales='log', N=2048):
            title=title0 + " | Time-domain; abs-val", **kw)
 
     kw['xlabel'] = "radians"
-    imshow(Psih, abs=1, cmap='jet', yticks=scales,
-           xticks=np.linspace(0, np.pi, N//2),
+    imshow(Psih, abs=1, yticks=scales, xticks=np.linspace(0, np.pi, N//2),
            title=title0 + " | Freq-domain; abs-val", **kw)
 
 
@@ -598,7 +597,7 @@ def viz_cwt_higher_order(Wx_k, scales=None, wavelet=None, **imshow_kw):
             title = "abs(CWT), order={}{}".format(k, title_append)
             imshow(Wx, abs=1, title=title, **imshow_kw)
 
-        Wx_ka = np.mean(np.vstack([Wx_k]), axis=0)
+        Wx_ka = np.mean(np.abs(np.vstack([Wx_k])), axis=0)
         order_str = ','.join(map(str, range(len(Wx_k))))
         title = "abs(CWT), orders {} avg{}".format(order_str, title_append)
         imshow(Wx_ka, abs=1, title=title, **imshow_kw)
@@ -634,29 +633,58 @@ def viz_gmw_orders(N=1024, n_orders=3, scale=5, gamma=3, beta=60,
 
 #### Visual tools ## messy code ##############################################
 def imshow(data, title=None, show=1, cmap=None, norm=None, complex=None, abs=0,
-           w=None, h=None, ridge=0, ticks=1, aspect='auto', ax=None, fig=None,
-           yticks=None, xticks=None, xlabel=None, ylabel=None, **kw):
+           w=None, h=None, ridge=0, ticks=1, borders=1, aspect='auto', ax=None,
+           fig=None, yticks=None, xticks=None, xlabel=None, ylabel=None,
+           norm_scaling=1, **kw):
+    """
+    norm: color norm, tuple of (vmin, vmax)
+    abs: take abs(data) before plotting
+    ticks: False to not plot x & y ticks
+    borders: False to not display plot borders
+    w, h: rescale width & height
+    norm_scaling: multiplies `norm`, even if `norm` is None (multiplies default)
+    kw: passed to `plt.imshow()`
+
+    others
+    """
+    # axes
     if (ax or fig) and complex:
         NOTE("`ax` and `fig` ignored if `complex`")
-    ax  = ax  or plt.gca()
-    fig = fig or plt.gcf()
+    if complex:
+        fig, ax = plt.subplots(1, 2)
+    else:
+        ax  = ax  or plt.gca()
+        fig = fig or plt.gcf()
 
+    # norm
     if norm is None:
         mx = np.max(np.abs(data))
         vmin, vmax = ((-mx, mx) if not abs else
                       (0, mx))
     else:
         vmin, vmax = norm
+    vmin *= norm_scaling
+    vmax *= norm_scaling
+
+    # colormap
+    import matplotlib as mpl
+    mpl33 = bool(float(mpl.__version__[:3]) >= 3.3)
     if cmap is None:
-        cmap = 'jet' if abs else 'bwr'
+        cmap = (('turbo' if mpl33 else 'jet') if abs else
+                'bwr')
+    elif cmap == 'turbo':
+        if not mpl33:
+            from .utils import WARN
+            WARN("'turbo' colormap requires matplotlib>=3.3; using 'jet' instead")
+            cmap = 'jet'
+
     _kw = dict(vmin=vmin, vmax=vmax, cmap=cmap, aspect=aspect, **kw)
 
     if abs:
         ax.imshow(np.abs(data), **_kw)
     elif complex:
-        fig, axes = plt.subplots(1, 2)
-        axes[0].imshow(data.real, **_kw)
-        axes[1].imshow(data.imag, **_kw)
+        ax[0].imshow(data.real, **_kw)
+        ax[1].imshow(data.imag, **_kw)
         plt.subplots_adjust(left=0, right=1, bottom=0, top=1,
                             wspace=0, hspace=0)
     else:
@@ -673,7 +701,10 @@ def imshow(data, title=None, show=1, cmap=None, norm=None, complex=None, abs=0,
         ax.set_xticks([])
         ax.set_yticks([])
     if xticks is not None or yticks is not None:
-        _ticks(xticks, yticks)
+        _ticks(xticks, yticks, ax)
+    if not borders:
+        for spine in ax.spines:
+            ax.spines[spine].set_visible(False)
     if xlabel is not None:
         ax.set_xlabel(xlabel, weight='bold', fontsize=15)
     if ylabel is not None:
@@ -687,23 +718,44 @@ def imshow(data, title=None, show=1, cmap=None, norm=None, complex=None, abs=0,
 def plot(x, y=None, title=None, show=0, ax_equal=False, complex=0, abs=0,
          c_annot=False, w=None, h=None, dx1=False, xlims=None, ylims=None,
          vert=False, vlines=None, hlines=None, xlabel=None, ylabel=None,
-         xticks=None, yticks=None, ax=None, fig=None, ticks=True, **kw):
+         xticks=None, yticks=None, ax=None, fig=None, ticks=True, squeeze=True,
+         auto_xlims=True, **kw):
+    """
+    norm: color norm, tuple of (vmin, vmax)
+    abs: take abs(data) before plotting
+    complex: plot `x.real` & `x.imag`; `2` to also plot `abs(x)`
+    ticks: False to not plot x & y ticks
+    w, h: rescale width & height
+    kw: passed to `plt.imshow()`
+
+    others
+    """
     ax  = ax  or plt.gca()
     fig = fig or plt.gcf()
+
+    if auto_xlims is None:
+        auto_xlims = bool((x is not None and len(x) != 0) or
+                          (y is not None and len(y) != 0))
 
     if x is None and y is None:
         raise Exception("`x` and `y` cannot both be None")
     elif x is None:
+        y = y if isinstance(y, list) or not squeeze else y.squeeze()
         x = np.arange(len(y))
     elif y is None:
+        x = x if isinstance(x, list) or not squeeze else x.squeeze()
         y = x
         x = np.arange(len(x))
+    x = x if isinstance(x, list) or not squeeze else x.squeeze()
+    y = y if isinstance(y, list) or not squeeze else y.squeeze()
 
     if vert:
         x, y = y, x
     if complex:
         ax.plot(x, y.real, color='tab:blue', **kw)
         ax.plot(x, y.imag, color='tab:orange', **kw)
+        if complex == 2:
+            ax.plot(x, np.abs(y), color='k', linestyle='--', **kw)
         if c_annot:
             _kw = dict(fontsize=15, xycoords='axes fraction', weight='bold')
             ax.annotate("real", xy=(.93, .95), color='tab:blue', **_kw)
@@ -719,16 +771,21 @@ def plot(x, y=None, title=None, show=0, ax_equal=False, complex=0, abs=0,
         vhlines(vlines, kind='v')
     if hlines:
         vhlines(hlines, kind='h')
-    if not ticks:
+
+    ticks = ticks if isinstance(ticks, (list, tuple)) else (ticks, ticks)
+    if not ticks[0]:
         ax.set_xticks([])
+    if not ticks[1]:
         ax.set_yticks([])
     if xticks is not None or yticks is not None:
-        _ticks(xticks, yticks)
+        _ticks(xticks, yticks, ax)
+    if xticks is not None or yticks is not None:
+        _ticks(xticks, yticks, ax)
 
     _maybe_title(title, ax=ax)
     _scale_plot(fig, ax, show=show, ax_equal=ax_equal, w=w, h=h,
                 xlims=xlims, ylims=ylims, dx1=(len(x) if dx1 else 0),
-                xlabel=xlabel, ylabel=ylabel)
+                xlabel=xlabel, ylabel=ylabel, auto_xlims=auto_xlims)
 
 
 def plots(X, Y=None, nrows=None, ncols=None, tight=True, sharex=False,
@@ -795,9 +852,13 @@ def plots(X, Y=None, nrows=None, ncols=None, tight=True, sharex=False,
 def scat(x, y=None, title=None, show=0, ax_equal=False, s=18, w=None, h=None,
          xlims=None, ylims=None, dx1=False, vlines=None, hlines=None, ticks=1,
          complex=False, abs=False, xlabel=None, ylabel=None, ax=None, fig=None,
-         **kw):
+         auto_xlims=True, **kw):
     ax  = ax  or plt.gca()
     fig = fig or plt.gcf()
+
+    if auto_xlims is None:
+        auto_xlims = bool((x is not None and len(x) != 0) or
+                          (y is not None and len(y) != 0))
 
     if x is None and y is None:
         raise Exception("`x` and `y` cannot both be None")
@@ -825,7 +886,7 @@ def scat(x, y=None, title=None, show=0, ax_equal=False, s=18, w=None, h=None,
         vhlines(hlines, kind='h')
     _scale_plot(fig, ax, show=show, ax_equal=ax_equal, w=w, h=h,
                 xlims=xlims, ylims=ylims, dx1=(len(x) if dx1 else 0),
-                xlabel=xlabel, ylabel=ylabel)
+                xlabel=xlabel, ylabel=ylabel, auto_xlims=auto_xlims)
 
 
 def plotscat(*args, **kw):
@@ -836,12 +897,24 @@ def plotscat(*args, **kw):
         plt.show()
 
 
-def hist(x, bins=500, title=None, show=0, stats=0):
+def hist(x, bins=500, title=None, show=0, stats=0, ax=None, fig=None,
+         w=1, h=1, xlims=None, ylims=None, xlabel=None, ylabel=None):
+    """Histogram. `stats=True` to print mean, std, min, max of `x`."""
+    def _fmt(*nums):
+        return [(("%.3e" % n) if (abs(n) > 1e3 or abs(n) < 1e-3) else
+                 ("%.3f" % n)) for n in nums]
+
+    ax  = ax  or plt.gca()
+    fig = fig or plt.gcf()
+
     x = np.asarray(x)
-    _ = plt.hist(x.ravel(), bins=bins)
-    _maybe_title(title)
+    _ = ax.hist(x.ravel(), bins=bins)
+    _maybe_title(title, ax=ax)
+    _scale_plot(fig, ax, show=show, w=w, h=h, xlims=xlims, ylims=ylims,
+                xlabel=xlabel, ylabel=ylabel)
     if show:
         plt.show()
+
     if stats:
         mu, std, mn, mx = (x.mean(), x.std(), x.min(), x.max())
         print("(mean, std, min, max) = ({}, {}, {}, {})".format(
@@ -871,19 +944,29 @@ def _fmt(*nums):
     return [(("%.3e" % n) if (abs(n) > 1e3 or abs(n) < 1e-3) else
              ("%.3f" % n)) for n in nums]
 
-def _ticks(xticks, yticks):
+def _ticks(xticks, yticks, ax):
     def fmt(ticks):
+        if all(isinstance(h, str) for h in ticks):
+            return "%s"
         return ("%.d" if all(float(h).is_integer() for h in ticks) else
                 "%.2f")
 
     if yticks is not None:
-        idxs = np.linspace(0, len(yticks) - 1, 8).astype('int32')
-        yt = [fmt(yticks) % h for h in np.asarray(yticks)[idxs]]
-        plt.yticks(idxs, yt)
+        if not hasattr(yticks, '__len__') and not yticks:
+            ax.set_yticks([])
+        else:
+            idxs = np.linspace(0, len(yticks) - 1, 8).astype('int32')
+            yt = [fmt(yticks) % h for h in np.asarray(yticks)[idxs]]
+            ax.set_yticks(idxs)
+            ax.set_yticklabels(yt)
     if xticks is not None:
-        idxs = np.linspace(0, len(xticks) - 1, 8).astype('int32')
-        xt = [fmt(xticks) % h for h in np.asarray(xticks)[idxs]]
-        plt.xticks(idxs, xt)
+        if not hasattr(xticks, '__len__') and not xticks:
+            ax.set_xticks([])
+        else:
+            idxs = np.linspace(0, len(xticks) - 1, 8).astype('int32')
+            xt = [fmt(xticks) % h for h in np.asarray(xticks)[idxs]]
+            ax.set_xticks(idxs)
+            ax.set_xticklabels(xt)
 
 def _maybe_title(title, ax=None):
     if title is None:
@@ -902,11 +985,15 @@ def _maybe_title(title, ax=None):
 
 
 def _scale_plot(fig, ax, show=False, ax_equal=False, w=None, h=None,
-                xlims=None, ylims=None, dx1=False, xlabel=None, ylabel=None):
-    xmin, xmax = ax.get_xlim()
-    rng = xmax - xmin
+                xlims=None, ylims=None, dx1=False, xlabel=None, ylabel=None,
+                auto_xlims=True):
+    if xlims:
+        ax.set_xlim(*xlims)
+    elif auto_xlims:
+        xmin, xmax = ax.get_xlim()
+        rng = xmax - xmin
+        ax.set_xlim(xmin + .018 * rng, xmax - .018 * rng)
 
-    ax.set_xlim(xmin + .018 * rng, xmax - .018 * rng)
     if ax_equal:
         yabsmax = max(np.abs([*ax.get_ylim()]))
         mx = max(yabsmax, max(np.abs([xmin, xmax])))
